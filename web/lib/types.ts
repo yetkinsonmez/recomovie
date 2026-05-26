@@ -36,6 +36,7 @@ export interface MovieDetail extends Movie {
   trailer_youtube_key: string | null;
   streaming_providers: Record<string, RegionProviders> | null;
   mpaa_rating: string | null;
+  vote_count: number | null;
 }
 
 export interface Recommendation extends Movie {

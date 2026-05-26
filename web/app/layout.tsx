@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Manrope, Instrument_Serif } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AuthNav } from "@/components/AuthNav";
 import "./globals.css";
 
 // Body font: humanist sans, refined and readable.
@@ -55,8 +57,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="site-header">
           <div className="header-inner">
             <Link href="/" className="logo-link">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/recomovie-logo.png" alt="recomovie" />
+              <Image
+                src="/recomovie-logo.png"
+                alt="recomovie"
+                width={140}
+                height={46}
+                priority
+              />
             </Link>
             <nav className="site-nav">
               <Link href="/movies" className="nav-link">
@@ -65,6 +72,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/blend" className="nav-link">
                 Blend
               </Link>
+              <Link href="/watchlist" className="nav-link">
+                Watchlist
+              </Link>
+              <AuthNav />
               <ThemeToggle />
             </nav>
           </div>

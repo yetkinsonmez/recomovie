@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 function PlayIcon() {
   return (
@@ -18,6 +19,9 @@ export function YouTubeEmbed({
   title: string;
 }) {
   const [playing, setPlaying] = useState(false);
+  const [thumb, setThumb] = useState(
+    `https://i.ytimg.com/vi/${videoKey}/maxresdefault.jpg`,
+  );
 
   if (playing) {
     return (
@@ -38,16 +42,16 @@ export function YouTubeEmbed({
       onClick={() => setPlaying(true)}
       aria-label={`Play ${title} trailer`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`https://i.ytimg.com/vi/${videoKey}/maxresdefault.jpg`}
+      <Image
+        src={thumb}
         alt=""
-        loading="lazy"
-        onError={(event) => {
-          // maxresdefault doesn't exist for every video; fall back gracefully
-          const img = event.currentTarget;
-          if (!img.src.includes("hqdefault")) {
-            img.src = `https://i.ytimg.com/vi/${videoKey}/hqdefault.jpg`;
+        fill
+        sizes="(max-width: 768px) 100vw, 640px"
+        unoptimized
+        onError={() => {
+          // maxresdefault doesn't exist for every video; fall back gracefully.
+          if (!thumb.includes("hqdefault")) {
+            setThumb(`https://i.ytimg.com/vi/${videoKey}/hqdefault.jpg`);
           }
         }}
       />

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { RegionProviders, StreamingProvider } from "@/lib/types";
 import { getWatchProviderLink } from "@/lib/watchLinks";
 
@@ -15,11 +16,11 @@ function ProviderTile({
   const content = (
     <>
       {provider.logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={`${TMDB_LOGO_BASE}${provider.logo}`}
           alt={provider.name}
-          loading="lazy"
+          width={52}
+          height={52}
         />
       ) : (
         <div className="provider-tile-fallback">{provider.name}</div>
@@ -64,11 +65,11 @@ function ProviderChip({
   const content = (
     <>
       {provider.logo && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={`${TMDB_LOGO_BASE}${provider.logo}`}
           alt=""
-          loading="lazy"
+          width={24}
+          height={24}
         />
       )}
       {provider.name}

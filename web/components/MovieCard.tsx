@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { Movie, Recommendation } from "@/lib/types";
 
 function StarIcon() {
@@ -9,18 +10,33 @@ function StarIcon() {
   );
 }
 
-export function MovieCard({ movie }: { movie: Movie | Recommendation }) {
+export function MovieCard({
+  movie,
+  isRated = false,
+}: {
+  movie: Movie | Recommendation;
+  isRated?: boolean;
+}) {
   const year = movie.release_date ? movie.release_date.slice(0, 4) : "";
   const similarity =
     "similarity" in movie ? Math.round(movie.similarity * 100) : null;
   const rating = movie.vote_average ? movie.vote_average.toFixed(1) : null;
 
   return (
-    <Link href={`/movie/${movie.tmdb_id}`} className="card">
+    <Link
+      href={`/movie/${movie.tmdb_id}`}
+      className={`card ${isRated ? "is-rated" : ""}`}
+      title={isRated ? "You've already rated this" : undefined}
+    >
       <div className="poster">
         {movie.poster_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={movie.poster_url} alt={movie.title} loading="lazy" />
+          <Image
+            src={movie.poster_url}
+            alt={movie.title}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
+            className="poster-img"
+          />
         ) : (
           <div className="poster-empty">No image</div>
         )}

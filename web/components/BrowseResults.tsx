@@ -3,6 +3,7 @@ import { MovieCard } from "@/components/MovieCard";
 import { Controls } from "@/components/Controls";
 import { Pagination } from "@/components/Pagination";
 import type { Movie } from "@/lib/types";
+import { getRatedIds } from "@/lib/userEngagement";
 
 const PAGE_SIZE = 30;
 
@@ -46,6 +47,8 @@ export async function BrowseResults({
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const ratedIds = await getRatedIds();
+
   const baseParams = new URLSearchParams();
   if (q) baseParams.set("q", q);
   if (genre) baseParams.set("genre", genre);
@@ -85,7 +88,11 @@ export async function BrowseResults({
 
           <section className="grid catalog-grid">
             {movies.map((movie) => (
-              <MovieCard key={movie.tmdb_id} movie={movie} />
+              <MovieCard
+                key={movie.tmdb_id}
+                movie={movie}
+                isRated={ratedIds.has(movie.tmdb_id)}
+              />
             ))}
           </section>
           <Pagination

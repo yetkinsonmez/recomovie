@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import type { Movie } from "@/lib/types";
 
@@ -61,8 +62,12 @@ export function MoviePicker({
       <div className="picker picker-filled">
         <div className="picker-poster">
           {picked.poster_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={picked.poster_url} alt={picked.title} />
+            <Image
+              src={picked.poster_url}
+              alt={picked.title}
+              fill
+              sizes="(max-width: 768px) 50vw, 320px"
+            />
           ) : (
             <div className="poster-empty">No image</div>
           )}
@@ -119,8 +124,12 @@ export function MoviePicker({
               >
                 <div className="picker-result-poster">
                   {movie.poster_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={movie.poster_url} alt="" loading="lazy" />
+                    <Image
+                      src={movie.poster_url}
+                      alt=""
+                      fill
+                      sizes="34px"
+                    />
                   ) : null}
                 </div>
                 <span className="picker-result-title">{movie.title}</span>
