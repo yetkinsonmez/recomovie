@@ -26,8 +26,11 @@ export function AvatarPicker({
       fd.set("avatar_id", id);
       const res = await updateAvatar(fd);
       setSavingId(null);
-      if (res && "error" in res) setError(res.error);
-      else setTimeout(() => setOpen(false), 200);
+      if (res && "error" in res) {
+        setError(res.error ?? "Avatar update failed");
+      } else {
+        setTimeout(() => setOpen(false), 200);
+      }
     });
   }
 
