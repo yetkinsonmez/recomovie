@@ -3380,3 +3380,68 @@ h2 {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ── Landing scroll hint ─────────────────────────────────── */
+.landing-scroll-hint {
+  margin-top: 2.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  animation: scrollHintBob 2.4s ease-in-out infinite;
+  opacity: 0.7;
+}
+@keyframes scrollHintBob {
+  0%, 100% { transform: translateY(0); opacity: 0.55; }
+  50%      { transform: translateY(6px); opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-scroll-hint { animation: none; }
+}
+
+/* ── Home feed (below the search hero) ───────────────────── */
+.home-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+.home-feed-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.home-feed-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+.home-feed-head .catalog-eyebrow { margin: 0; }
+.home-feed-title {
+  font-family: var(--font-display), serif;
+  font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+  font-weight: 400;
+  line-height: 1.1;
+  margin: 0;
+  flex: 1 1 auto;
+}
+.home-feed-meta {
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+.home-feed-empty {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.5);
+  text-align: center;
+}
+.link-accent {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.link-accent:hover { text-decoration: underline; }

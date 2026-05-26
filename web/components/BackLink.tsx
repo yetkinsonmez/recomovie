@@ -20,12 +20,11 @@ export function BackLink({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // history.length > 1 isn't perfect (it counts the initial blank entry on
-    // some browsers) — combine with a same-origin referrer check.
-    const sameOriginReferrer =
-      !!document.referrer &&
-      new URL(document.referrer).origin === window.location.origin;
-    setCanGoBack(window.history.length > 1 && sameOriginReferrer);
+    // history.length grows with every SPA push (router.push / Link click).
+    // 1 = fresh tab or direct URL. >1 = we have somewhere to go back to.
+    // We deliberately don't check document.referrer: it doesn't update on
+    // client-side route changes, so it'd misreport navigation history.
+    setCanGoBack(window.history.length > 1);
   }, []);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
