@@ -67,7 +67,7 @@ export function RatingWidget({
       const res = await rateMovie(tmdbId, value);
       if (res && "error" in res) {
         setRating(prev);
-        setError(res.error);
+        setError(res.error ?? "Rating update failed");
       }
     });
   }
@@ -81,7 +81,7 @@ export function RatingWidget({
       const res = await removeRating(tmdbId);
       if (res && "error" in res) {
         setRating(prev);
-        setError(res.error);
+        setError(res.error ?? "Rating update failed");
       }
     });
   }

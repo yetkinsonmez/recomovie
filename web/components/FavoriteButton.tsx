@@ -31,7 +31,7 @@ export function FavoriteButton({
       const res = next ? await addFavorite(tmdbId) : await removeFavorite(tmdbId);
       if (res && "error" in res) {
         setIsFav(!next);
-        setError(res.error);
+        setError(res.error ?? "Favorite update failed");
       }
     });
   }

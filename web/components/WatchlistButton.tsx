@@ -33,7 +33,7 @@ export function WatchlistButton({
         : await removeFromWatchlist(tmdbId);
       if (res && "error" in res) {
         setInList(!next);
-        setError(res.error);
+        setError(res.error ?? "Watchlist update failed");
       }
     });
   }

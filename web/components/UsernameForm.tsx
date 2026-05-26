@@ -35,7 +35,7 @@ export function UsernameForm({ current }: { current: string | null }) {
           const fd = new FormData();
           fd.set("username", value);
           const res = await updateUsername(fd);
-          if (res && "error" in res) setError(res.error);
+          if (res && "error" in res) setError(res.error ?? "Username update failed");
           else setEditing(false);
         });
       }}
