@@ -1,3 +1,8 @@
+import {
+  MovieCardSkeleton,
+  MovieDiaryRowSkeleton,
+} from "@/components/Skeletons";
+
 export default function Loading() {
   return (
     <main>
@@ -27,17 +32,47 @@ export default function Loading() {
       </section>
 
       <div className="container">
-        <div
-          className="sk"
-          style={{ width: 240, height: 26, marginBottom: 22 }}
-        />
-        <div className="grid">
-          {Array.from({ length: 10 }).map((_, index) => (
+        <div className="cast-watch-row">
+          <div className="cast-watch-main">
+            <div className="sk" style={{ height: 80, borderRadius: 10 }} />
+            <div className="sk" style={{ height: 22, width: 80, marginTop: 8 }} />
             <div
-              key={index}
-              className="sk"
-              style={{ aspectRatio: "2 / 3", borderRadius: 12 }}
-            />
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: 14,
+                maxWidth: 520,
+                marginTop: 8,
+              }}
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="sk-card">
+                  <div className="sk sk-poster" />
+                  <div className="sk sk-line" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <aside
+            style={{ display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div className="sk" style={{ height: 140, borderRadius: 12 }} />
+            <div className="sk" style={{ height: 56, borderRadius: 12 }} />
+            <div className="sk" style={{ height: 180, borderRadius: 12 }} />
+          </aside>
+        </div>
+
+        <div className="sk" style={{ width: 200, height: 26, margin: "1.5rem 0 0.75rem" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <MovieDiaryRowSkeleton key={i} />
+          ))}
+        </div>
+
+        <div className="sk" style={{ width: 280, height: 26, margin: "2rem 0 0.75rem" }} />
+        <div className="grid">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <MovieCardSkeleton key={i} />
           ))}
         </div>
       </div>

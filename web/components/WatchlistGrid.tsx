@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import { VTLink } from "./VTLink";
 import type { Movie } from "@/lib/types";
 import { removeFromWatchlist } from "@/app/watchlist/actions";
 import { Spinner } from "./Spinner";
@@ -173,12 +173,15 @@ export function WatchlistGrid({
             const rated = ratedSet.has(m.tmdb_id);
             return (
               <div key={m.tmdb_id} className="wl-card">
-                <Link
+                <VTLink
                   href={`/movie/${m.tmdb_id}`}
                   className={`card ${rated ? "is-rated" : ""}`}
                   title={rated ? "You've already rated this" : undefined}
                 >
-                  <div className="poster">
+                  <div
+                    className="poster"
+                    style={{ viewTransitionName: `poster-${m.tmdb_id}` } as React.CSSProperties}
+                  >
                     {m.poster_url ? (
                       <Image
                         src={m.poster_url}
@@ -201,7 +204,7 @@ export function WatchlistGrid({
                       <p className="meta">{m.release_date.slice(0, 4)}</p>
                     )}
                   </div>
-                </Link>
+                </VTLink>
                 <button
                   type="button"
                   className="wl-remove"

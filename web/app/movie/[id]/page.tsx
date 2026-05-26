@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/server";
@@ -11,12 +11,59 @@ import { RatingWidget } from "@/components/RatingWidget";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { MovieDiary } from "@/components/MovieDiary";
 import { SignInGate } from "@/components/SignInGate";
+import { Reveal } from "@/components/Reveal";
+import { BackLink } from "@/components/BackLink";
 import { getRatedIds } from "@/lib/userEngagement";
 import type {
   MovieDetail,
   Recommendation,
   RegionProviders,
 } from "@/lib/types";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const tmdbId = Number(id);
+  if (!Number.isFinite(tmdbId)) return {};
+
+  const { data } = await supabase
+    .from("movies")
+    .select("title, overview, release_date, poster_url, backdrop_url, tagline")
+    .eq("tmdb_id", tmdbId)
+    .single();
+  if (!data) return {};
+
+  const year = data.release_date ? data.release_date.slice(0, 4) : null;
+  const title = year ? `${data.title} (${year}) — recomovie` : `${data.title} — recomovie`;
+  const description =
+    (data.tagline as string | null) ||
+    ((data.overview as string | null)?.slice(0, 180) ?? null) ||
+    "Find films matched on plot, theme and tone — not just genre.";
+  // Prefer the wider backdrop for social previews; fall back to poster.
+  const image = (data.backdrop_url as string | null) ?? (data.poster_url as string | null);
+  const ogImages = image
+    ? [{ url: image, width: 1280, height: 720, alt: data.title as string }]
+    : undefined;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: ogImages,
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
+}
 
 function pickRegion(
   providers: Record<string, RegionProviders> | null,
@@ -79,12 +126,13 @@ export default async function MoviePage({
     data: { user },
   } = await authed.auth.getUser();
   let userRating: number | null = null;
+  let userComment: string | null = null;
   let inWatchlist = false;
   if (user) {
     const [{ data: rateRow }, { data: wlRow }] = await Promise.all([
       authed
         .from("user_movie_ratings")
-        .select("rating")
+        .select("rating, comment")
         .eq("user_id", user.id)
         .eq("tmdb_id", tmdbId)
         .maybeSingle(),
@@ -96,6 +144,7 @@ export default async function MoviePage({
         .maybeSingle(),
     ]);
     userRating = rateRow ? Number(rateRow.rating) : null;
+    userComment = rateRow ? ((rateRow.comment as string | null) ?? null) : null;
     inWatchlist = !!wlRow;
   }
 
@@ -117,12 +166,17 @@ export default async function MoviePage({
     updated_at: string;
     username: string;
     avatar_id: string | null;
+    user_id: string;
+    comment: string | null;
+    likes: number;
+    dislikes: number;
+    viewer_reaction: 1 | -1 | 0;
   };
   let movieDiary: MovieDiaryItem[] = [];
   if (user) {
     const { data: ratingRows } = await supabase
       .from("user_movie_ratings")
-      .select("rating, updated_at, user_id")
+      .select("rating, comment, updated_at, user_id")
       .eq("tmdb_id", tmdbId)
       .order("updated_at", { ascending: false })
       .limit(24);
@@ -150,15 +204,45 @@ export default async function MoviePage({
       }
     }
 
+    // Reactions for these ratings on this movie. counts + the viewer's own.
+    const reactionCounts = new Map<string, { likes: number; dislikes: number }>();
+    const viewerReaction = new Map<string, 1 | -1 | 0>();
+    if (ratingUserIds.length > 0) {
+      const { data: reactRows } = await supabase
+        .from("rating_comment_reactions")
+        .select("rating_user_id, user_id, reaction")
+        .eq("tmdb_id", tmdbId)
+        .in("rating_user_id", ratingUserIds);
+      for (const r of reactRows ?? []) {
+        const key = r.rating_user_id as string;
+        const cur = reactionCounts.get(key) ?? { likes: 0, dislikes: 0 };
+        if (r.reaction === 1) cur.likes += 1;
+        else if (r.reaction === -1) cur.dislikes += 1;
+        reactionCounts.set(key, cur);
+        if (r.user_id === user.id) {
+          viewerReaction.set(key, (r.reaction as 1 | -1) ?? 0);
+        }
+      }
+    }
+
     movieDiary = (ratingRows ?? [])
       .map((r) => {
         const p = profileByUserId.get(r.user_id as string);
         if (!p?.username) return null;
+        const counts = reactionCounts.get(r.user_id as string) ?? {
+          likes: 0,
+          dislikes: 0,
+        };
         return {
           rating: Number(r.rating),
           updated_at: r.updated_at as string,
           username: p.username,
           avatar_id: p.avatar_id,
+          user_id: r.user_id as string,
+          comment: (r.comment as string | null) ?? null,
+          likes: counts.likes,
+          dislikes: counts.dislikes,
+          viewer_reaction: viewerReaction.get(r.user_id as string) ?? 0,
         };
       })
       .filter((e): e is MovieDiaryItem => !!e)
@@ -183,12 +267,13 @@ export default async function MoviePage({
         )}
         <div className="movie-hero-scrim" />
         <div className="movie-hero-inner">
-          <Link href="/" className="back">
-            ← All movies
-          </Link>
+          <BackLink fallbackHref="/movies" fallbackLabel="All movies" />
 
           <div className="movie-hero-body">
-            <div className="detail-poster">
+            <div
+              className="detail-poster"
+              style={{ viewTransitionName: `poster-${tmdbId}` } as React.CSSProperties}
+            >
               {film.poster_url ? (
                 <Image
                   src={film.poster_url}
@@ -241,43 +326,45 @@ export default async function MoviePage({
       </section>
 
       <div className="container">
-        <div className="overview-row">
-          {film.overview ? (
-            <p className="overview">{film.overview}</p>
-          ) : (
-            <div />
-          )}
-          <aside className="overview-aside">
-            <RatingWidget
-              tmdbId={tmdbId}
-              initialRating={userRating}
-              isSignedIn={!!user}
-            />
-            <WatchlistButton
-              tmdbId={tmdbId}
-              initialInList={inWatchlist}
-              isSignedIn={!!user}
-            />
-          </aside>
-        </div>
-
-        {/* Cast (left) + Where to watch (right, compact square card). One
-            row keeps the page tighter — the watch panel is narrow so the
-            cast strip has room. Falls back to single-column on narrow
-            viewports. */}
-        {(film.top_cast?.length || region) && (
-          <div className="cast-watch-row">
-            {film.top_cast && film.top_cast.length > 0 ? (
-              <section className="detail-section cast-watch-cast">
-                <h2>Cast</h2>
-                <CastStrip cast={film.top_cast} />
-              </section>
-            ) : (
-              <div />
+        {/* Two-column layout starting right under the hero. Left: overview
+            then cast. Right: rating, watchlist, where-to-watch stacked into
+            equal-width compact cards. Single column on narrow viewports. */}
+        <div className="cast-watch-row">
+          <div className="cast-watch-main">
+            {film.overview && (
+              <p className="overview">{film.overview}</p>
             )}
+            {film.top_cast && film.top_cast.length > 0 && (
+              <Reveal as="section" className="detail-section cast-watch-cast">
+                <h2>Cast</h2>
+                <CastStrip cast={film.top_cast.slice(0, 8)} />
+              </Reveal>
+            )}
+          </div>
+
+          <aside className="cast-watch-aside">
+            <section className="cw-card">
+              <h3 className="cw-card-title">Your rating</h3>
+              <RatingWidget
+                tmdbId={tmdbId}
+                initialRating={userRating}
+                initialComment={userComment}
+                isSignedIn={!!user}
+              />
+            </section>
+
+            <section className="cw-card">
+              <h3 className="cw-card-title">Watchlist</h3>
+              <WatchlistButton
+                tmdbId={tmdbId}
+                initialInList={inWatchlist}
+                isSignedIn={!!user}
+              />
+            </section>
+
             {region && (
-              <section className="detail-section cast-watch-watch">
-                <h2>Where to watch</h2>
+              <section className="cw-card">
+                <h3 className="cw-card-title">Where to watch</h3>
                 <div className="watch-square">
                   <WatchProviders
                     providers={region.data}
@@ -288,10 +375,10 @@ export default async function MoviePage({
                 </div>
               </section>
             )}
-          </div>
-        )}
+          </aside>
+        </div>
 
-        <section className="detail-section">
+        <Reveal as="section" className="detail-section">
           <h2>Recent ratings</h2>
           {!user ? (
             <SignInGate
@@ -301,12 +388,17 @@ export default async function MoviePage({
           ) : movieDiary.length === 0 ? (
             <p className="meta">No ratings yet — be the first.</p>
           ) : (
-            <MovieDiary entries={movieDiary} />
+            <MovieDiary
+              entries={movieDiary}
+              tmdbId={tmdbId}
+              viewerId={user?.id ?? null}
+              isSignedIn={!!user}
+            />
           )}
-        </section>
+        </Reveal>
 
 
-        <section className="detail-section">
+        <Reveal as="section" className="detail-section">
           <h2>Movies with a similar story</h2>
           {recommendations.length === 0 ? (
             <p className="error">No recommendations available.</p>
@@ -321,7 +413,7 @@ export default async function MoviePage({
               ))}
             </section>
           )}
-        </section>
+        </Reveal>
       </div>
     </main>
   );

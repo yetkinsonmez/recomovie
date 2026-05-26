@@ -1,3 +1,5 @@
+import { MovieCardSkeleton } from "@/components/Skeletons";
+
 export default function Loading() {
   return (
     <main className="container watchlist-page">
@@ -22,11 +24,7 @@ export default function Loading() {
         <div className="sk" style={{ width: 200, height: 18, margin: "1rem 0" }} />
         <section className="grid catalog-grid">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div
-              key={i}
-              className="sk"
-              style={{ aspectRatio: "2 / 3", borderRadius: 12 }}
-            />
+            <MovieCardSkeleton key={i} />
           ))}
         </section>
       </section>

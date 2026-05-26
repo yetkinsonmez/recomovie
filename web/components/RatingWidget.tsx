@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { rateMovie, removeRating } from "@/app/movie/actions";
+import {
+  rateMovie,
+  removeRating,
+  setRatingComment,
+} from "@/app/movie/actions";
 import { Spinner } from "./Spinner";
+
+const COMMENT_MAX = 2000;
 
 function StarShape({ fill }: { fill: "empty" | "half" | "full" }) {
   // Two stacked stars — empty silhouette behind, gold "fill" on top, clipped
@@ -35,19 +41,39 @@ function StarShape({ fill }: { fill: "empty" | "half" | "full" }) {
 export function RatingWidget({
   tmdbId,
   initialRating,
+  initialComment,
   isSignedIn,
 }: {
   tmdbId: number;
   initialRating: number | null;
+  initialComment?: string | null;
   isSignedIn: boolean;
 }) {
   const [rating, setRating] = useState<number | null>(initialRating);
   const [hover, setHover] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [comment, setComment] = useState<string>(initialComment ?? "");
+  const [savedComment, setSavedComment] = useState<string>(
+    initialComment ?? "",
+  );
+  const [commentPending, startCommentTransition] = useTransition();
+  const [commentError, setCommentError] = useState<string | null>(null);
   const router = useRouter();
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const shown = hover ?? rating ?? 0;
+  const canComment = rating !== null;
+  const commentDirty = comment.trim() !== savedComment.trim();
+
+  // Auto-grow: reset height to allow shrink, then match scrollHeight. Capped
+  // by CSS max-height so very long comments scroll inside the textarea.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [comment, canComment]);
 
   function fillFor(starIndex: number): "empty" | "half" | "full" {
     if (shown >= starIndex) return "full";
@@ -64,7 +90,8 @@ export function RatingWidget({
     setRating(value);
     setError(null);
     startTransition(async () => {
-      const res = await rateMovie(tmdbId, value);
+      // Keep the comment on the row when we (re)write the rating.
+      const res = await rateMovie(tmdbId, value, savedComment || null);
       if (res && "error" in res) {
         setRating(prev);
         setError(res.error ?? "Rating update failed");
@@ -82,6 +109,23 @@ export function RatingWidget({
       if (res && "error" in res) {
         setRating(prev);
         setError(res.error ?? "Rating update failed");
+      } else {
+        setComment("");
+        setSavedComment("");
+      }
+    });
+  }
+
+  function saveComment() {
+    if (!canComment || !commentDirty) return;
+    const next = comment.trim();
+    setCommentError(null);
+    startCommentTransition(async () => {
+      const res = await setRatingComment(tmdbId, next || null);
+      if (res && "error" in res) {
+        setCommentError(res.error ?? "Could not save comment");
+      } else {
+        setSavedComment(next);
       }
     });
   }
@@ -148,6 +192,53 @@ export function RatingWidget({
         </p>
       )}
       {error && <p className="auth-error rating-hint">{error}</p>}
+
+      {isSignedIn && (
+        <div className="rating-comment">
+          <label htmlFor={`rating-comment-${tmdbId}`} className="meta">
+            {canComment
+              ? "Add a comment (optional)"
+              : "Rate the film to leave a comment"}
+          </label>
+          <textarea
+            ref={textareaRef}
+            id={`rating-comment-${tmdbId}`}
+            className="rating-comment-input"
+            value={comment}
+            onChange={(e) => setComment(e.target.value.slice(0, COMMENT_MAX))}
+            disabled={!canComment || commentPending}
+            placeholder={
+              canComment
+                ? "Share what you thought…"
+                : "Pick a star rating above first."
+            }
+            rows={2}
+            maxLength={COMMENT_MAX}
+          />
+          <div className="rating-comment-foot">
+            <span className="meta">
+              {comment.length}/{COMMENT_MAX}
+            </span>
+            <button
+              type="button"
+              className="auth-button rating-comment-save"
+              onClick={saveComment}
+              disabled={!canComment || !commentDirty || commentPending}
+            >
+              {commentPending ? (
+                <Spinner size={14} />
+              ) : savedComment ? (
+                "Update comment"
+              ) : (
+                "Save comment"
+              )}
+            </button>
+          </div>
+          {commentError && (
+            <p className="auth-error rating-hint">{commentError}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

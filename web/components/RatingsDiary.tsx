@@ -1,10 +1,11 @@
-import Link from "next/link";
 import Image from "next/image";
+import { VTLink } from "./VTLink";
 
 export interface DiaryEntry {
   tmdb_id: number;
   rating: number;
   updated_at: string;
+  comment: string | null;
   movie: {
     title: string;
     poster_url: string | null;
@@ -79,7 +80,11 @@ export function RatingsDiary({
     <ul className="diary-list">
       {entries.map((e) => (
         <li key={e.tmdb_id} className="diary-row">
-          <Link href={`/movie/${e.tmdb_id}`} className="diary-poster">
+          <VTLink
+            href={`/movie/${e.tmdb_id}`}
+            className="diary-poster"
+            style={{ viewTransitionName: `poster-${e.tmdb_id}` } as React.CSSProperties}
+          >
             {e.movie.poster_url ? (
               <Image
                 src={e.movie.poster_url}
@@ -90,22 +95,25 @@ export function RatingsDiary({
             ) : (
               <span className="diary-poster-empty" />
             )}
-          </Link>
+          </VTLink>
           <div className="diary-body">
-            <Link href={`/movie/${e.tmdb_id}`} className="diary-title">
+            <VTLink href={`/movie/${e.tmdb_id}`} className="diary-title">
               {e.movie.title}
               {e.movie.release_date && (
                 <span className="meta">
                   {" "}({e.movie.release_date.slice(0, 4)})
                 </span>
               )}
-            </Link>
+            </VTLink>
             <MiniStars value={e.rating} />
             <p className="meta diary-date">
               {isOwn ? "You rated this" : `@${subject} rated this`}{" "}
               <strong>{e.rating.toFixed(1)} / 10</strong> on{" "}
               {formatDate(e.updated_at)}
             </p>
+            {e.comment && (
+              <p className="diary-comment">{e.comment}</p>
+            )}
           </div>
         </li>
       ))}

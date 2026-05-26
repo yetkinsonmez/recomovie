@@ -1,3 +1,5 @@
+import { DiaryRowSkeleton } from "@/components/Skeletons";
+
 export default function Loading() {
   return (
     <main className="profile-stage">
@@ -10,12 +12,12 @@ export default function Loading() {
             className="sk"
             style={{ width: 120, height: 120, borderRadius: "50%" }}
           />
-          <div
-            className="profile-meta"
-            style={{ flex: 1, maxWidth: 320 }}
-          >
+          <div className="profile-meta" style={{ flex: 1, maxWidth: 320 }}>
             <div className="sk" style={{ height: 32, width: "70%" }} />
-            <div className="sk" style={{ height: 14, width: "55%" }} />
+            <div
+              className="sk"
+              style={{ height: 14, width: "55%", marginTop: 8 }}
+            />
           </div>
         </section>
 
@@ -49,29 +51,8 @@ export default function Loading() {
             style={{ height: 14, width: 280, marginBottom: 20 }}
           />
           <div className="diary-list">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="diary-row"
-                style={{ borderColor: "transparent" }}
-              >
-                <div
-                  className="sk"
-                  style={{ width: 48, height: 72, borderRadius: 4 }}
-                />
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                  }}
-                >
-                  <div className="sk" style={{ height: 16, width: "60%" }} />
-                  <div className="sk" style={{ height: 14, width: 120 }} />
-                  <div className="sk" style={{ height: 12, width: "45%" }} />
-                </div>
-              </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <DiaryRowSkeleton key={i} />
             ))}
           </div>
         </section>

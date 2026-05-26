@@ -1,12 +1,18 @@
 import Link from "next/link";
 import Image from "next/image";
 import { avatarSrc } from "@/lib/avatars";
+import { CommentReactions } from "./CommentReactions";
 
 export interface MovieDiaryEntry {
   rating: number;
   updated_at: string;
   username: string;
   avatar_id: string | null;
+  user_id: string;
+  comment: string | null;
+  likes: number;
+  dislikes: number;
+  viewer_reaction: 1 | -1 | 0;
 }
 
 function formatDate(iso: string): string {
@@ -50,23 +56,55 @@ function MiniStars({ value }: { value: number }) {
   );
 }
 
-export function MovieDiary({ entries }: { entries: MovieDiaryEntry[] }) {
+export function MovieDiary({
+  entries,
+  tmdbId,
+  viewerId,
+  isSignedIn,
+}: {
+  entries: MovieDiaryEntry[];
+  tmdbId: number;
+  viewerId: string | null;
+  isSignedIn: boolean;
+}) {
   return (
     <ul className="movie-diary-list">
       {entries.map((e, idx) => (
-        <li key={`${e.username}-${idx}`} className="movie-diary-row">
-          <Link href={`/u/${e.username}`} className="movie-diary-user">
-            <Image
-              src={avatarSrc(e.avatar_id)}
-              alt=""
-              width={36}
-              height={36}
-              className="movie-diary-avatar"
+        <li
+          key={`${e.username}-${idx}`}
+          className="movie-diary-row reveal-row"
+          style={{ animationDelay: `${idx * 60}ms` }}
+        >
+          <div className="movie-diary-head">
+            <Link href={`/u/${e.username}`} className="movie-diary-user">
+              <Image
+                src={avatarSrc(e.avatar_id)}
+                alt=""
+                width={36}
+                height={36}
+                className="movie-diary-avatar"
+              />
+              <span className="movie-diary-username">@{e.username}</span>
+            </Link>
+            <MiniStars value={e.rating} />
+            <span className="meta movie-diary-date">
+              {formatDate(e.updated_at)}
+            </span>
+          </div>
+          {e.comment && (
+            <p className="movie-diary-comment">{e.comment}</p>
+          )}
+          {e.comment && (
+            <CommentReactions
+              tmdbId={tmdbId}
+              ratingUserId={e.user_id}
+              initialLikes={e.likes}
+              initialDislikes={e.dislikes}
+              initialUserReaction={e.viewer_reaction}
+              isSignedIn={isSignedIn}
+              isOwn={viewerId === e.user_id}
             />
-            <span className="movie-diary-username">@{e.username}</span>
-          </Link>
-          <MiniStars value={e.rating} />
-          <span className="meta movie-diary-date">{formatDate(e.updated_at)}</span>
+          )}
         </li>
       ))}
     </ul>

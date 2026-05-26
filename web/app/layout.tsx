@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Manrope, Instrument_Serif } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
+import { ViewTransitions } from "next-view-transitions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthNav } from "@/components/AuthNav";
 import "./globals.css";
@@ -41,12 +42,13 @@ const themeScript = `
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${bodyFont.variable} ${displayFont.variable}`}
-      suppressHydrationWarning
-    >
-      <body suppressHydrationWarning>
+    <ViewTransitions>
+      <html
+        lang="en"
+        className={`${bodyFont.variable} ${displayFont.variable}`}
+        suppressHydrationWarning
+      >
+        <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <NextTopLoader
           color="#c2543a"
@@ -69,9 +71,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/movies" className="nav-link">
                 All movies
               </Link>
-              <Link href="/blend" className="nav-link">
-                Blend
-              </Link>
               <Link href="/watchlist" className="nav-link">
                 Watchlist
               </Link>
@@ -81,7 +80,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         {children}
-      </body>
-    </html>
+        </body>
+      </html>
+    </ViewTransitions>
   );
 }

@@ -14,7 +14,7 @@ export function CastStrip({ cast }: { cast: CastMember[] }) {
                 src={`${TMDB_PROFILE_BASE}${member.profile_path}`}
                 alt={member.name}
                 fill
-                sizes="130px"
+                sizes="(max-width: 540px) 45vw, 120px"
               />
             ) : (
               <div className="cast-photo-empty" aria-hidden="true">

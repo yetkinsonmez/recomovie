@@ -76,7 +76,7 @@ export default async function PublicProfilePage({
       supabase
         .from("user_movie_ratings")
         .select(
-          `tmdb_id, rating, updated_at, movies:tmdb_id (
+          `tmdb_id, rating, comment, updated_at, movies:tmdb_id (
             title, poster_url, release_date
           )`,
         )
@@ -110,6 +110,7 @@ export default async function PublicProfilePage({
           tmdb_id: r.tmdb_id as number,
           rating: Number(r.rating),
           updated_at: r.updated_at as string,
+          comment: (r.comment as string | null) ?? null,
           movie: m,
         } satisfies DiaryEntry;
       })

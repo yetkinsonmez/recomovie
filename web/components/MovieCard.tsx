@@ -1,5 +1,5 @@
-import Link from "next/link";
 import Image from "next/image";
+import { VTLink } from "./VTLink";
 import type { Movie, Recommendation } from "@/lib/types";
 
 function StarIcon() {
@@ -21,14 +21,18 @@ export function MovieCard({
   const similarity =
     "similarity" in movie ? Math.round(movie.similarity * 100) : null;
   const rating = movie.vote_average ? movie.vote_average.toFixed(1) : null;
+  const vtName = `poster-${movie.tmdb_id}`;
 
   return (
-    <Link
+    <VTLink
       href={`/movie/${movie.tmdb_id}`}
       className={`card ${isRated ? "is-rated" : ""}`}
       title={isRated ? "You've already rated this" : undefined}
     >
-      <div className="poster">
+      <div
+        className="poster"
+        style={{ viewTransitionName: vtName } as React.CSSProperties}
+      >
         {movie.poster_url ? (
           <Image
             src={movie.poster_url}
@@ -54,6 +58,6 @@ export function MovieCard({
         <h3>{movie.title}</h3>
         {year && <p className="meta">{year}</p>}
       </div>
-    </Link>
+    </VTLink>
   );
 }
