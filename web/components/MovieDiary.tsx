@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { avatarSrc } from "@/lib/avatars";
+import { censorComment } from "@/lib/censor";
 import { CommentReactions } from "./CommentReactions";
 
 export interface MovieDiaryEntry {
@@ -92,7 +93,7 @@ export function MovieDiary({
             </span>
           </div>
           {e.comment && (
-            <p className="movie-diary-comment">{e.comment}</p>
+            <p className="movie-diary-comment">{censorComment(e.comment)}</p>
           )}
           {e.comment && (
             <CommentReactions

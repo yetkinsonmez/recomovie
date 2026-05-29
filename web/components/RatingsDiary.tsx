@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { VTLink } from "./VTLink";
+import { censorComment } from "@/lib/censor";
 
 export interface DiaryEntry {
   tmdb_id: number;
@@ -112,7 +113,9 @@ export function RatingsDiary({
               {formatDate(e.updated_at)}
             </p>
             {e.comment && (
-              <p className="diary-comment">{e.comment}</p>
+              <p className="diary-comment">
+                {isOwn ? e.comment : censorComment(e.comment)}
+              </p>
             )}
           </div>
         </li>

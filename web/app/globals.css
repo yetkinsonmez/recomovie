@@ -3445,3 +3445,159 @@ h2 {
   white-space: nowrap;
 }
 .link-accent:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE SHELL — shared layout primitives for every page
+   ─────────────────────────────────────────────────────────────────────────
+   This is the single place that governs how the global template (header,
+   container, hero, card grid) adapts across screen sizes. Page-specific
+   tweaks live next to their own components above; cross-cutting layout rules
+   live here so they're easy to find and manage.
+
+   Breakpoints:
+     ≤ 900px  tablet / small laptop  (multi-column layouts collapse)
+     ≤ 720px  mobile nav             (header nav folds into a menu)
+     ≤ 600px  phone                  (tighten spacing, denser grid)
+     ≤ 400px  small phone            (force 2-up grid, smaller type)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---- Hamburger toggle: hidden on desktop, shown when nav collapses ---- */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  padding: 0 11px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+}
+.nav-toggle-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.nav-toggle.is-open .nav-toggle-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.nav-toggle.is-open .nav-toggle-bar:nth-child(2) {
+  opacity: 0;
+}
+.nav-toggle.is-open .nav-toggle-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Full-screen tap-catcher behind the open menu. */
+.nav-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: flex;
+  }
+  .nav-scrim {
+    display: block;
+  }
+
+  /* Nav folds into a dropdown panel anchored to the sticky header. */
+  .site-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 45;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 12px 16px 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 22px 44px var(--shadow);
+  }
+  .site-nav.is-open {
+    display: flex;
+  }
+
+  /* Stack nav items full-width and left-aligned inside the panel. */
+  .site-nav .nav-link,
+  .site-nav .nav-link-button,
+  .site-nav .nav-profile,
+  .site-nav form {
+    width: 100%;
+  }
+  .site-nav .nav-link,
+  .site-nav .nav-link-button {
+    justify-content: flex-start;
+    padding: 11px 12px;
+    font-size: 1rem;
+  }
+  .site-nav .nav-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+  }
+  /* Theme toggle gets a little breathing room at the bottom of the panel. */
+  .site-nav .theme-toggle {
+    margin-top: 4px;
+    align-self: flex-start;
+  }
+}
+
+/* ---- Phone: tighten the shared container, hero and section spacing ---- */
+@media (max-width: 600px) {
+  .container {
+    padding: 24px 14px 56px;
+  }
+  .movie-hero-inner {
+    padding: 20px 14px 32px;
+  }
+  /* The backdrop hero reserves a lot of top space for desktop; trim it. */
+  .movie-hero.has-backdrop .movie-hero-inner {
+    padding-top: 84px;
+  }
+  .movie-hero-body {
+    gap: 20px;
+  }
+  .detail-section {
+    margin-top: 36px;
+  }
+  h2 {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+  }
+  /* Denser poster grid so phones show two columns, not one giant card. */
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 14px;
+  }
+}
+
+/* ---- Small phone: guarantee a clean 2-up grid ---- */
+@media (max-width: 400px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .header-inner {
+    padding: 8px 14px;
+  }
+  .logo-link img {
+    height: 38px;
+  }
+}

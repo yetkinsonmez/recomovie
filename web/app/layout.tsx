@@ -7,6 +7,7 @@ import NextTopLoader from "nextjs-toploader";
 import { ViewTransitions } from "next-view-transitions";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthNav } from "@/components/AuthNav";
+import { HeaderNav } from "@/components/HeaderNav";
 import "./globals.css";
 
 // Body font: humanist sans, refined and readable.
@@ -67,7 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 priority
               />
             </Link>
-            <nav className="site-nav">
+            <HeaderNav>
               <Link href="/movies" className="nav-link">
                 All movies
               </Link>
@@ -76,7 +77,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               </Link>
               <AuthNav />
               <ThemeToggle />
-            </nav>
+            </HeaderNav>
           </div>
         </header>
         {children}
