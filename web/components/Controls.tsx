@@ -98,12 +98,12 @@ export function Controls() {
   return (
     <div className="controls">
       <div className="search-wrap">
-        <span className="control-label">Title</span>
+        <span className="control-label">Search</span>
         <SearchIcon />
         <input
           className="search"
           type="search"
-          placeholder="Search movies by title…"
+          placeholder="Search by title, director or cast…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />

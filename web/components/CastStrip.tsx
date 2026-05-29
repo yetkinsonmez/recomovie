@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { CastMember } from "@/lib/types";
 
 const TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185";
@@ -7,7 +8,12 @@ export function CastStrip({ cast }: { cast: CastMember[] }) {
   return (
     <div className="cast-strip">
       {cast.map((member, index) => (
-        <div className="cast-card" key={`${member.name}-${index}`}>
+        <Link
+          className="cast-card"
+          key={`${member.name}-${index}`}
+          href={`/person/${encodeURIComponent(member.name)}`}
+          title={`See all films with ${member.name}`}
+        >
           <div className="cast-photo">
             {member.profile_path ? (
               <Image
@@ -26,7 +32,7 @@ export function CastStrip({ cast }: { cast: CastMember[] }) {
           {member.character && (
             <div className="cast-character">{member.character}</div>
           )}
-        </div>
+        </Link>
       ))}
     </div>
   );

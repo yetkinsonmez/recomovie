@@ -42,11 +42,13 @@ export function RatingWidget({
   tmdbId,
   initialRating,
   initialComment,
+  initialSpoiler = false,
   isSignedIn,
 }: {
   tmdbId: number;
   initialRating: number | null;
   initialComment?: string | null;
+  initialSpoiler?: boolean;
   isSignedIn: boolean;
 }) {
   const [rating, setRating] = useState<number | null>(initialRating);
@@ -57,6 +59,8 @@ export function RatingWidget({
   const [savedComment, setSavedComment] = useState<string>(
     initialComment ?? "",
   );
+  const [spoiler, setSpoiler] = useState<boolean>(initialSpoiler);
+  const [savedSpoiler, setSavedSpoiler] = useState<boolean>(initialSpoiler);
   const [commentPending, startCommentTransition] = useTransition();
   const [commentError, setCommentError] = useState<string | null>(null);
   const router = useRouter();
@@ -64,7 +68,8 @@ export function RatingWidget({
 
   const shown = hover ?? rating ?? 0;
   const canComment = rating !== null;
-  const commentDirty = comment.trim() !== savedComment.trim();
+  const commentDirty =
+    comment.trim() !== savedComment.trim() || spoiler !== savedSpoiler;
 
   // Auto-grow: reset height to allow shrink, then match scrollHeight. Capped
   // by CSS max-height so very long comments scroll inside the textarea.
@@ -90,8 +95,14 @@ export function RatingWidget({
     setRating(value);
     setError(null);
     startTransition(async () => {
-      // Keep the comment on the row when we (re)write the rating.
-      const res = await rateMovie(tmdbId, value, savedComment || null);
+      // Keep the comment (and its spoiler flag) on the row when we (re)write
+      // the rating.
+      const res = await rateMovie(
+        tmdbId,
+        value,
+        savedComment || null,
+        savedSpoiler,
+      );
       if (res && "error" in res) {
         setRating(prev);
         setError(res.error ?? "Rating update failed");
@@ -112,6 +123,8 @@ export function RatingWidget({
       } else {
         setComment("");
         setSavedComment("");
+        setSpoiler(false);
+        setSavedSpoiler(false);
       }
     });
   }
@@ -119,13 +132,16 @@ export function RatingWidget({
   function saveComment() {
     if (!canComment || !commentDirty) return;
     const next = comment.trim();
+    const nextSpoiler = next ? spoiler : false;
     setCommentError(null);
     startCommentTransition(async () => {
-      const res = await setRatingComment(tmdbId, next || null);
+      const res = await setRatingComment(tmdbId, next || null, nextSpoiler);
       if (res && "error" in res) {
         setCommentError(res.error ?? "Could not save comment");
       } else {
         setSavedComment(next);
+        setSavedSpoiler(nextSpoiler);
+        setSpoiler(nextSpoiler);
       }
     });
   }
@@ -216,7 +232,16 @@ export function RatingWidget({
             maxLength={COMMENT_MAX}
           />
           <div className="rating-comment-foot">
-            <span className="meta">
+            <label className="spoiler-toggle">
+              <input
+                type="checkbox"
+                checked={spoiler}
+                onChange={(e) => setSpoiler(e.target.checked)}
+                disabled={!canComment || !comment.trim() || commentPending}
+              />
+              <span>Mark as spoiler</span>
+            </label>
+            <span className="meta rating-comment-count">
               {comment.length}/{COMMENT_MAX}
             </span>
             <button

@@ -81,6 +81,28 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         {children}
+        <footer className="site-footer">
+          <div className="site-footer-inner">
+            <a
+              href="https://www.themoviedb.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tmdb-attribution-logo"
+              aria-label="The Movie Database (TMDB)"
+            >
+              <Image
+                src="/tmdb-logo.svg"
+                alt="TMDB"
+                width={130}
+                height={17}
+              />
+            </a>
+            <p className="tmdb-attribution-text">
+              This website uses TMDB and the TMDB APIs but is not endorsed,
+              certified, or otherwise approved by TMDB.
+            </p>
+          </div>
+        </footer>
         </body>
       </html>
     </ViewTransitions>

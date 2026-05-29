@@ -1725,6 +1725,13 @@ h2 {
 
 .cast-card {
   min-width: 0;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cast-card:hover .cast-name {
+  color: var(--accent);
 }
 
 .cast-name { font-size: 0.82rem; margin-top: 6px; }
@@ -1946,6 +1953,18 @@ h2 {
   display: inline-block;
 }
 
+.hero-director-link {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.hero-director-link:hover {
+  color: var(--accent);
+  border-bottom-color: currentColor;
+}
+
 .rating-pill {
   display: inline-flex;
   align-items: center;
@@ -1972,7 +1991,13 @@ h2 {
   border-radius: 999px;
   font-size: 0.78rem;
   color: var(--text);
+  text-decoration: none;
   backdrop-filter: blur(6px);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.genre-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ---------- hero entrance: orchestrated fade-up ---------- */
@@ -2320,6 +2345,195 @@ h2 {
   border-bottom-color: rgba(0, 0, 0, 0.08);
 }
 .profile-meta { display: flex; flex-direction: column; gap: 0.4rem; }
+
+/* ── Pinned hot take / favorite quote ───────────────────── */
+.hot-take-quote {
+  position: relative;
+  margin: 0.25rem 0 0;
+  padding: 0.35rem 0 0.35rem 0.9rem;
+  border-left: 3px solid var(--accent);
+  font-style: italic;
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--text);
+  max-width: 46ch;
+}
+.hot-take {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.hot-take .hot-take-quote { flex: 1; min-width: 0; }
+.hot-take-edit { flex-shrink: 0; margin-top: 0.45rem; }
+.hot-take-add {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.hot-take-add:hover { color: var(--accent); }
+
+.hot-take-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-width: 46ch;
+}
+.hot-take-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 2.6rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--text);
+  font: inherit;
+  font-style: italic;
+  line-height: 1.4;
+}
+[data-theme="light"] .hot-take-input { background: rgba(255, 255, 255, 0.55); }
+.hot-take-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.hot-take-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.hot-take-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* ── Profile settings drawer ────────────────────────────── */
+.profile-settings {
+  margin-left: auto;
+  align-self: flex-start;
+  position: relative;
+}
+.settings-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+[data-theme="light"] .settings-trigger { background: rgba(255, 255, 255, 0.55); }
+.settings-trigger:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.55rem);
+  z-index: 61;
+  width: min(360px, 86vw);
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 18px 48px var(--shadow);
+  animation: fadeUp 0.18s ease both;
+}
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-title {
+  margin: 0;
+  font-family: var(--font-display), serif;
+  font-size: 1.3rem;
+}
+.settings-close {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.2rem;
+}
+.settings-close:hover { color: var(--accent); }
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.settings-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.settings-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+/* Let the embedded editors fill the panel width. */
+.settings-panel .hot-take-form,
+.settings-panel .hot-take-quote,
+.settings-panel .username-form {
+  max-width: none;
+}
+.settings-panel .username-form { flex-wrap: wrap; gap: 0.5rem; }
+
+.settings-signout {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+}
+.settings-signout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.settings-signout-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (max-width: 540px) {
+  .profile-settings {
+    margin-left: 0;
+    width: 100%;
+  }
+  .settings-panel {
+    left: 0;
+    right: auto;
+    width: min(360px, 100%);
+  }
+}
 
 .profile-section { margin-top: 2.5rem; }
 .profile-section-title {
@@ -3207,14 +3421,132 @@ h2 {
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.rating-comment-count {
+  margin-left: auto;
 }
 
-/* ── Comment reactions (like/dislike) ───────────────────── */
+/* ── Spoiler toggle (compose) + reveal (display) ────────── */
+.spoiler-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.spoiler-toggle input { cursor: pointer; }
+.spoiler-toggle input:disabled { cursor: not-allowed; }
+
+.spoiler-tag {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(194, 84, 58, 0.18);
+  color: var(--accent);
+  vertical-align: middle;
+}
+
+/* Blurred shield until the reader opts in. */
+.spoiler-shield {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  overflow: hidden;
+}
+.spoiler-shield-text {
+  display: block;
+  filter: blur(6px);
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+}
+.spoiler-shield-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+.spoiler-shield:hover .spoiler-shield-overlay {
+  background: rgba(0, 0, 0, 0.12);
+}
+.spoiler-shield-icon { font-size: 0.95rem; }
+[data-theme="light"] .spoiler-shield-overlay {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* ── Comment reactions (emoji) ──────────────────────────── */
 .comment-reactions {
   display: inline-flex;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   align-items: center;
+  margin-top: 0.4rem;
 }
+.comment-reactions.is-readonly .reaction-chip {
+  cursor: default;
+}
+.reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.5rem;
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.reaction-chip .reaction-emoji {
+  font-size: 1.05rem;
+}
+.reaction-chip .reaction-count {
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-width: 0.6rem;
+  text-align: center;
+}
+.reaction-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.reaction-chip.is-active {
+  background: rgba(194, 84, 58, 0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.reaction-chip:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
+.comment-reactions.is-readonly .reaction-chip:disabled {
+  opacity: 1;
+}
+
+/* legacy up/down vote (kept for safety) */
 .reaction-btn {
   display: inline-flex;
   align-items: center;
@@ -3265,6 +3597,23 @@ h2 {
   overflow: hidden;
   border: 2px solid rgba(194, 84, 58, 0.3);
   flex-shrink: 0;
+}
+
+/* ── Person filmography header photo ─────────────────────── */
+.person-photo .avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.person-photo-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-display), serif;
+  font-size: 3rem;
+  color: var(--muted);
+  background: var(--card);
 }
 
 /* ── Sign-in gate (placeholder for content visible to logged-in users) ── */
@@ -3599,5 +3948,366 @@ h2 {
   }
   .logo-link img {
     height: 38px;
+  }
+}
+
+/* ---- TMDB attribution footer (required by TMDB API terms of use) ----
+   The TMDB logo is kept less prominent than the recomovie brand and paired
+   with the mandated "not endorsed by TMDB" disclaimer. */
+.site-footer {
+  border-top: 1px solid var(--border);
+  background: rgba(var(--surface-rgb), 0.6);
+  margin-top: auto;
+}
+.site-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 22px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.tmdb-attribution-logo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+.tmdb-attribution-logo:hover {
+  opacity: 1;
+}
+.tmdb-attribution-text {
+  flex: 1 1 320px;
+  min-width: 240px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .site-footer-inner {
+    padding: 18px 14px;
+    gap: 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CRITIC PERSONALITY — FIFA-style radar (you vs the crowd) + genre deltas
+   ═══════════════════════════════════════════════════════════════════════════ */
+.critic-card {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(var(--surface-rgb), 0.6);
+}
+.critic-radar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.critic-radar svg {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  overflow: visible;
+}
+.critic-ring {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.critic-spoke {
+  stroke: var(--border);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+.critic-poly-crowd {
+  fill: rgba(129, 98, 51, 0.18);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.critic-poly-you {
+  fill: rgba(194, 84, 58, 0.28);
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.critic-dot {
+  fill: var(--accent);
+}
+.critic-axis-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.critic-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.critic-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.critic-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.critic-swatch.is-you {
+  background: var(--accent);
+}
+.critic-swatch.is-crowd {
+  background: var(--muted);
+  opacity: 0.6;
+}
+.critic-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.critic-summary {
+  font-family: var(--font-display), serif;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  margin: 0;
+}
+.critic-delta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.critic-delta-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.critic-delta-row:last-child {
+  border-bottom: none;
+}
+.critic-delta-genre {
+  font-weight: 600;
+}
+.critic-delta-meta {
+  font-size: 0.74rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.critic-delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-width: 44px;
+  text-align: right;
+}
+.critic-delta.is-hot {
+  color: #1f9d57;
+}
+[data-theme="dark"] .critic-delta.is-hot {
+  color: #4fcf85;
+}
+.critic-delta.is-cold {
+  color: var(--accent);
+}
+.critic-delta.is-neutral {
+  color: var(--muted);
+}
+.critic-empty {
+  padding: 16px 0;
+}
+@media (max-width: 720px) {
+  .critic-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES — Steam-style badge case grouped by category
+   ═══════════════════════════════════════════════════════════════════════════ */
+.badges {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.badges-count {
+  margin: 0;
+}
+.badge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.badge-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.badge-group-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+.badge-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.badge-card {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  transition: border-color 0.15s ease, transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.badge-card.is-earned {
+  border-color: rgba(194, 84, 58, 0.45);
+  box-shadow: 0 4px 16px rgba(194, 84, 58, 0.12);
+}
+.badge-card.is-earned::after {
+  content: "✓";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.badge-card.is-next {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(194, 84, 58, 0.18);
+}
+.badge-card.is-locked {
+  opacity: 0.78;
+}
+.badge-card.is-locked .badge-icon {
+  filter: grayscale(0.7);
+  opacity: 0.85;
+}
+.badge-icon {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  border-radius: 10px;
+  background: rgba(var(--surface-rgb), 0.8);
+  border: 1px solid var(--border);
+}
+.badge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.badge-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.badge-desc {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.badge-progress {
+  display: block;
+  height: 5px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.badge-progress-bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.badge-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 2px;
+}
+.badge-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.badge-card.is-earned .badge-status {
+  color: var(--accent);
+}
+
+/* ── Achievement rarity (Steam-style) ───────────────────── */
+.badge-rarity {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+}
+.badge-rarity.is-common {
+  color: var(--muted);
+  background: rgba(127, 127, 127, 0.14);
+}
+.badge-rarity.is-uncommon {
+  color: #4a8fd4;
+  background: rgba(74, 143, 212, 0.14);
+  border-color: rgba(74, 143, 212, 0.3);
+}
+.badge-rarity.is-rare {
+  color: #a571d6;
+  background: rgba(165, 113, 214, 0.15);
+  border-color: rgba(165, 113, 214, 0.32);
+}
+.badge-rarity.is-legendary {
+  color: #d9a521;
+  background: rgba(217, 165, 33, 0.16);
+  border-color: rgba(217, 165, 33, 0.38);
+}
+.badge-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.badge-pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  .badge-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,12 +1,14 @@
 import Image from "next/image";
 import { VTLink } from "./VTLink";
 import { censorComment } from "@/lib/censor";
+import { SpoilerComment } from "./SpoilerComment";
 
 export interface DiaryEntry {
   tmdb_id: number;
   rating: number;
   updated_at: string;
   comment: string | null;
+  is_spoiler: boolean;
   movie: {
     title: string;
     poster_url: string | null;
@@ -112,11 +114,18 @@ export function RatingsDiary({
               <strong>{e.rating.toFixed(1)} / 10</strong> on{" "}
               {formatDate(e.updated_at)}
             </p>
-            {e.comment && (
-              <p className="diary-comment">
-                {isOwn ? e.comment : censorComment(e.comment)}
-              </p>
-            )}
+            {e.comment &&
+              (e.is_spoiler && !isOwn ? (
+                <SpoilerComment
+                  className="diary-comment"
+                  text={censorComment(e.comment)}
+                />
+              ) : (
+                <p className="diary-comment">
+                  {e.is_spoiler && <span className="spoiler-tag">Spoiler</span>}{" "}
+                  {isOwn ? e.comment : censorComment(e.comment)}
+                </p>
+              ))}
           </div>
         </li>
       ))}

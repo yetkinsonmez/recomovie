@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AVATAR_BY_ID } from "@/lib/avatars";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+const HOT_TAKE_MAX = 180;
 
 export async function updateUsername(formData: FormData) {
   const supabase = await createClient();
@@ -31,6 +32,26 @@ export async function updateUsername(formData: FormData) {
 
   revalidatePath("/profile");
   revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
+export async function updateHotTake(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const raw = String(formData.get("hot_take") ?? "").trim();
+  const value = raw ? raw.slice(0, HOT_TAKE_MAX) : null;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ hot_take: value })
+    .eq("id", user.id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/profile");
   return { ok: true as const };
 }
 

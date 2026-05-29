@@ -6,6 +6,7 @@ import { VibeResults } from "@/components/VibeResults";
 import { HomeFeedSection } from "@/components/HomeFeedSection";
 import { Reveal } from "@/components/Reveal";
 import { getRatedIds } from "@/lib/userEngagement";
+import { getCurrentUser } from "@/lib/auth";
 import type { Movie } from "@/lib/types";
 
 export const revalidate = 600;
@@ -29,9 +30,7 @@ export default async function HomePage({
 
   // Auth check controls which feed sections we render below the hero.
   const authed = await createClient();
-  const {
-    data: { user },
-  } = await authed.auth.getUser();
+  const user = await getCurrentUser();
 
   // Hot This Week is public — runs the RPC with anon client (cached at the
   // page level via `revalidate`). 6 movies, leaderboard of recent rating

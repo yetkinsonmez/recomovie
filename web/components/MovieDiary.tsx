@@ -3,6 +3,8 @@ import Image from "next/image";
 import { avatarSrc } from "@/lib/avatars";
 import { censorComment } from "@/lib/censor";
 import { CommentReactions } from "./CommentReactions";
+import { SpoilerComment } from "./SpoilerComment";
+import type { ReactionCode } from "@/lib/reactions";
 
 export interface MovieDiaryEntry {
   rating: number;
@@ -11,9 +13,9 @@ export interface MovieDiaryEntry {
   avatar_id: string | null;
   user_id: string;
   comment: string | null;
-  likes: number;
-  dislikes: number;
-  viewer_reaction: 1 | -1 | 0;
+  is_spoiler: boolean;
+  reactions: Record<ReactionCode, number>;
+  viewer_reaction: ReactionCode | null;
 }
 
 function formatDate(iso: string): string {
@@ -92,15 +94,25 @@ export function MovieDiary({
               {formatDate(e.updated_at)}
             </span>
           </div>
-          {e.comment && (
-            <p className="movie-diary-comment">{censorComment(e.comment)}</p>
-          )}
+          {e.comment &&
+            (e.is_spoiler && viewerId !== e.user_id ? (
+              <SpoilerComment
+                className="movie-diary-comment"
+                text={censorComment(e.comment)}
+              />
+            ) : (
+              <p className="movie-diary-comment">
+                {e.is_spoiler && (
+                  <span className="spoiler-tag">Spoiler</span>
+                )}{" "}
+                {censorComment(e.comment)}
+              </p>
+            ))}
           {e.comment && (
             <CommentReactions
               tmdbId={tmdbId}
               ratingUserId={e.user_id}
-              initialLikes={e.likes}
-              initialDislikes={e.dislikes}
+              initialCounts={e.reactions}
               initialUserReaction={e.viewer_reaction}
               isSignedIn={isSignedIn}
               isOwn={viewerId === e.user_id}

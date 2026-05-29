@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { signout } from "@/app/auth/actions";
 import { avatarSrc } from "@/lib/avatars";
 
@@ -35,10 +36,7 @@ function SignOutIcon() {
 }
 
 export async function AuthNav() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return (
@@ -55,6 +53,7 @@ export async function AuthNav() {
     );
   }
 
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
     .select("username, avatar_id")

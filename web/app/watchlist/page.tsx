@@ -7,15 +7,14 @@ import {
 import { WatchlistSuggestions } from "@/components/WatchlistSuggestions";
 import type { Recommendation } from "@/lib/types";
 import { getRatedIds } from "@/lib/userEngagement";
+import { getCurrentUser } from "@/lib/auth";
 
 // Per-user data — always render fresh on the server.
 export const dynamic = "force-dynamic";
 
 export default async function WatchlistPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) redirect("/login?message=Sign in to see your watchlist");
 

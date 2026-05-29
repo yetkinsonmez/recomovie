@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -14,6 +15,12 @@ import { SignInGate } from "@/components/SignInGate";
 import { Reveal } from "@/components/Reveal";
 import { BackLink } from "@/components/BackLink";
 import { getRatedIds } from "@/lib/userEngagement";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  emptyReactionCounts,
+  isReactionCode,
+  type ReactionCode,
+} from "@/lib/reactions";
 import type {
   MovieDetail,
   Recommendation,
@@ -94,15 +101,26 @@ export default async function MoviePage({
   const tmdbId = Number(id);
   if (!Number.isFinite(tmdbId)) notFound();
 
-  const { data: movie, error } = await supabase
-    .from("movies")
-    .select(
-      "tmdb_id,title,overview,genres_text,poster_url,backdrop_url,release_date,runtime,vote_average,vote_count,tagline,director,top_cast,trailer_youtube_key,streaming_providers,mpaa_rating",
-    )
-    .eq("tmdb_id", tmdbId)
-    .single();
+  // These three are independent — the movie row and recommendations only need
+  // the tmdb id, and the auth lookup needs neither. Fire them together so the
+  // slowest (the pgvector recs RPC) overlaps with everything else instead of
+  // queuing behind it.
+  const [movieRes, recsRes, user] = await Promise.all([
+    supabase
+      .from("movies")
+      .select(
+        "tmdb_id,title,overview,genres_text,poster_url,backdrop_url,release_date,runtime,vote_average,vote_count,tagline,director,top_cast,trailer_youtube_key,streaming_providers,mpaa_rating",
+      )
+      .eq("tmdb_id", tmdbId)
+      .single(),
+    supabase.rpc("match_movies", { p_tmdb_id: tmdbId, p_count: 10 }),
+    getCurrentUser(),
+  ]);
 
+  const { data: movie, error } = movieRes;
   if (error || !movie) notFound();
+
+  const recommendations = (recsRes.data ?? []) as Recommendation[];
 
   const film = movie as MovieDetail;
   const year = film.release_date ? film.release_date.slice(0, 4) : "";
@@ -122,17 +140,15 @@ export default async function MoviePage({
 
   // Auth-aware: load the user's existing rating (if any) for this movie.
   const authed = await createClient();
-  const {
-    data: { user },
-  } = await authed.auth.getUser();
   let userRating: number | null = null;
   let userComment: string | null = null;
+  let userSpoiler = false;
   let inWatchlist = false;
   if (user) {
     const [{ data: rateRow }, { data: wlRow }] = await Promise.all([
       authed
         .from("user_movie_ratings")
-        .select("rating, comment")
+        .select("rating, comment, comment_spoiler")
         .eq("user_id", user.id)
         .eq("tmdb_id", tmdbId)
         .maybeSingle(),
@@ -145,17 +161,13 @@ export default async function MoviePage({
     ]);
     userRating = rateRow ? Number(rateRow.rating) : null;
     userComment = rateRow ? ((rateRow.comment as string | null) ?? null) : null;
+    userSpoiler = rateRow ? !!rateRow.comment_spoiler : false;
     inWatchlist = !!wlRow;
   }
 
-  const { data: recs } = await supabase.rpc("match_movies", {
-    p_tmdb_id: tmdbId,
-    p_count: 10,
-  });
-  const recommendations = (recs ?? []) as Recommendation[];
-
   // The set of movies this user has already rated — used to dim cards across
-  // the recs grid so they don't get pushed the same things twice.
+  // the recs grid so they don't get pushed the same things twice. Reuses the
+  // request-cached user, so no extra auth round-trip.
   const ratedIds = await getRatedIds();
 
   // Movie-level diary: most recent ratings for this film, joined with their
@@ -168,15 +180,15 @@ export default async function MoviePage({
     avatar_id: string | null;
     user_id: string;
     comment: string | null;
-    likes: number;
-    dislikes: number;
-    viewer_reaction: 1 | -1 | 0;
+    is_spoiler: boolean;
+    reactions: Record<ReactionCode, number>;
+    viewer_reaction: ReactionCode | null;
   };
   let movieDiary: MovieDiaryItem[] = [];
   if (user) {
     const { data: ratingRows } = await supabase
       .from("user_movie_ratings")
-      .select("rating, comment, updated_at, user_id")
+      .select("rating, comment, comment_spoiler, updated_at, user_id")
       .eq("tmdb_id", tmdbId)
       .order("updated_at", { ascending: false })
       .limit(24);
@@ -204,9 +216,10 @@ export default async function MoviePage({
       }
     }
 
-    // Reactions for these ratings on this movie. counts + the viewer's own.
-    const reactionCounts = new Map<string, { likes: number; dislikes: number }>();
-    const viewerReaction = new Map<string, 1 | -1 | 0>();
+    // Reactions for these ratings on this movie: per-emoji counts keyed by the
+    // commenter, plus whichever emoji the viewer themselves left.
+    const reactionCounts = new Map<string, Record<ReactionCode, number>>();
+    const viewerReaction = new Map<string, ReactionCode | null>();
     if (ratingUserIds.length > 0) {
       const { data: reactRows } = await supabase
         .from("rating_comment_reactions")
@@ -214,14 +227,13 @@ export default async function MoviePage({
         .eq("tmdb_id", tmdbId)
         .in("rating_user_id", ratingUserIds);
       for (const r of reactRows ?? []) {
+        const code = r.reaction as ReactionCode;
+        if (!isReactionCode(code)) continue;
         const key = r.rating_user_id as string;
-        const cur = reactionCounts.get(key) ?? { likes: 0, dislikes: 0 };
-        if (r.reaction === 1) cur.likes += 1;
-        else if (r.reaction === -1) cur.dislikes += 1;
+        const cur = reactionCounts.get(key) ?? emptyReactionCounts();
+        cur[code] += 1;
         reactionCounts.set(key, cur);
-        if (r.user_id === user.id) {
-          viewerReaction.set(key, (r.reaction as 1 | -1) ?? 0);
-        }
+        if (r.user_id === user.id) viewerReaction.set(key, code);
       }
     }
 
@@ -229,10 +241,6 @@ export default async function MoviePage({
       .map((r) => {
         const p = profileByUserId.get(r.user_id as string);
         if (!p?.username) return null;
-        const counts = reactionCounts.get(r.user_id as string) ?? {
-          likes: 0,
-          dislikes: 0,
-        };
         return {
           rating: Number(r.rating),
           updated_at: r.updated_at as string,
@@ -240,9 +248,10 @@ export default async function MoviePage({
           avatar_id: p.avatar_id,
           user_id: r.user_id as string,
           comment: (r.comment as string | null) ?? null,
-          likes: counts.likes,
-          dislikes: counts.dislikes,
-          viewer_reaction: viewerReaction.get(r.user_id as string) ?? 0,
+          is_spoiler: !!r.comment_spoiler,
+          reactions:
+            reactionCounts.get(r.user_id as string) ?? emptyReactionCounts(),
+          viewer_reaction: viewerReaction.get(r.user_id as string) ?? null,
         };
       })
       .filter((e): e is MovieDiaryItem => !!e)
@@ -297,7 +306,12 @@ export default async function MoviePage({
                 {film.director && (
                   <span className="hero-director">
                     <span className="muted-prefix">Directed by</span>{" "}
-                    {film.director}
+                    <Link
+                      href={`/person/${encodeURIComponent(film.director)}`}
+                      className="hero-director-link"
+                    >
+                      {film.director}
+                    </Link>
                   </span>
                 )}
                 {film.vote_average ? (
@@ -314,9 +328,13 @@ export default async function MoviePage({
               {genres.length > 0 && (
                 <div className="genre-pills">
                   {genres.map((genre) => (
-                    <span key={genre} className="genre-pill">
+                    <Link
+                      key={genre}
+                      href={`/movies?genre=${encodeURIComponent(genre)}`}
+                      className="genre-pill"
+                    >
                       {genre}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -349,6 +367,7 @@ export default async function MoviePage({
                 tmdbId={tmdbId}
                 initialRating={userRating}
                 initialComment={userComment}
+                initialSpoiler={userSpoiler}
                 isSignedIn={!!user}
               />
             </section>

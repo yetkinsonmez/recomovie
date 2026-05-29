@@ -7,12 +7,11 @@ import { getRatedIds } from "@/lib/userEngagement";
 
 const PAGE_SIZE = 30;
 
-const SORT_COLUMNS: Record<string, { column: string; ascending: boolean }> = {
-  popularity: { column: "popularity", ascending: false },
-  rating: { column: "vote_average", ascending: false },
-  newest: { column: "release_date", ascending: false },
-  title: { column: "title", ascending: true },
-};
+const VALID_SORTS = new Set(["popularity", "rating", "newest", "title"]);
+
+// Row shape returned by the search_movies RPC: a Movie plus a window count of
+// all rows matching the current filter (same value on every row).
+type SearchRow = Movie & { total_count: number };
 
 export async function BrowseResults({
   searchParams,
@@ -23,28 +22,27 @@ export async function BrowseResults({
   const q = (searchParams.q ?? "").trim();
   const genre = (searchParams.genre ?? "").trim();
   const sortKey =
-    searchParams.sort && SORT_COLUMNS[searchParams.sort]
+    searchParams.sort && VALID_SORTS.has(searchParams.sort)
       ? searchParams.sort
       : "popularity";
-  const sort = SORT_COLUMNS[sortKey];
-
-  let query = supabase
-    .from("movies")
-    .select("tmdb_id,title,poster_url,release_date,vote_average,genres_text", {
-      count: "exact",
-    });
-
-  if (q) query = query.ilike("title", `%${q}%`);
-  if (genre) query = query.ilike("genres_text", `%${genre}%`);
 
   const from = (page - 1) * PAGE_SIZE;
-  const { data, count, error } = await query
-    .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
-    .order("vote_count", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
 
-  const movies = (data ?? []) as Movie[];
-  const total = count ?? 0;
+  // Single RPC matches q against title, director and cast names, applies the
+  // genre filter + sort, and returns the page plus the total via a window count.
+  const { data, error } = await supabase.rpc("search_movies", {
+    p_q: q,
+    p_genre: genre,
+    p_sort: sortKey,
+    p_limit: PAGE_SIZE,
+    p_offset: from,
+  });
+
+  const rows = (data ?? []) as SearchRow[];
+  const movies: Movie[] = rows.map(
+    ({ total_count: _total, ...movie }) => movie,
+  );
+  const total = rows.length ? Number(rows[0].total_count) : 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const ratedIds = await getRatedIds();
@@ -79,7 +77,7 @@ export async function BrowseResults({
                 {page} of {totalPages}
               </p>
               <div className="active-filters" aria-label="Active filters">
-                {q && <span>Title: {q}</span>}
+                {q && <span>Search: {q}</span>}
                 {genre && <span>Genre: {genre}</span>}
                 {sortKey !== "popularity" && <span>Sort: {sortLabel}</span>}
               </div>

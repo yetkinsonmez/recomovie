@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 
 /**
  * Server-side helper: returns the set of tmdb_ids the currently signed-in
@@ -8,11 +9,10 @@ import { createClient } from "@/lib/supabase/server";
  * user has already engaged with these, so we don't want to highlight them.
  */
 export async function getRatedIds(): Promise<Set<number>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return new Set();
+
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("user_movie_ratings")

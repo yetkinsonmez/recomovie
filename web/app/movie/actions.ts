@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { isReactionCode, type ReactionCode } from "@/lib/reactions";
 
 const VALID_RATINGS = new Set(
   Array.from({ length: 20 }, (_, i) => (i + 1) * 0.5),
@@ -21,6 +22,7 @@ export async function rateMovie(
   tmdbId: number,
   rating: number,
   comment?: string | null,
+  spoiler = false,
 ) {
   if (!VALID_RATINGS.has(rating)) return { error: "Invalid rating" };
 
@@ -32,13 +34,15 @@ export async function rateMovie(
 
   const cleanComment = normalizeComment(comment);
 
-  // Upsert — also bumps updated_at via trigger on UPDATE path.
+  // Upsert — also bumps updated_at via trigger on UPDATE path. A spoiler flag
+  // only makes sense when there's actually a comment.
   const { error } = await supabase.from("user_movie_ratings").upsert(
     {
       user_id: user.id,
       tmdb_id: tmdbId,
       rating,
       comment: cleanComment,
+      comment_spoiler: cleanComment ? spoiler : false,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,tmdb_id" },
@@ -55,6 +59,7 @@ export async function rateMovie(
 export async function setRatingComment(
   tmdbId: number,
   comment: string | null,
+  spoiler = false,
 ) {
   const supabase = await createClient();
   const {
@@ -68,6 +73,7 @@ export async function setRatingComment(
     .from("user_movie_ratings")
     .update({
       comment: cleanComment,
+      comment_spoiler: cleanComment ? spoiler : false,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", user.id)
@@ -102,12 +108,16 @@ export async function removeRating(tmdbId: number) {
   return { ok: true as const };
 }
 
-// reaction: 1 = like, -1 = dislike, 0 = clear.
+// reaction: an emoji code (see lib/reactions.ts) to set, or null to clear.
 export async function setCommentReaction(
   ratingUserId: string,
   tmdbId: number,
-  reaction: 1 | -1 | 0,
+  reaction: ReactionCode | null,
 ) {
+  if (reaction !== null && !isReactionCode(reaction)) {
+    return { error: "Invalid reaction" };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -117,7 +127,7 @@ export async function setCommentReaction(
     return { error: "You can't react to your own comment." };
   }
 
-  if (reaction === 0) {
+  if (reaction === null) {
     const { error } = await supabase
       .from("rating_comment_reactions")
       .delete()

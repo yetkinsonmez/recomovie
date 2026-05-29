@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateUsername } from "@/app/profile/actions";
 import { Spinner } from "./Spinner";
 
@@ -9,6 +10,7 @@ export function UsernameForm({ current }: { current: string | null }) {
   const [value, setValue] = useState(current ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   if (!editing) {
     return (
@@ -35,8 +37,12 @@ export function UsernameForm({ current }: { current: string | null }) {
           const fd = new FormData();
           fd.set("username", value);
           const res = await updateUsername(fd);
-          if (res && "error" in res) setError(res.error ?? "Username update failed");
-          else setEditing(false);
+          if (res && "error" in res)
+            setError(res.error ?? "Username update failed");
+          else {
+            setEditing(false);
+            router.refresh();
+          }
         });
       }}
     >

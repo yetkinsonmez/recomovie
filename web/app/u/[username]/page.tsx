@@ -4,8 +4,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { avatarSrc } from "@/lib/avatars";
+import { censorComment } from "@/lib/censor";
 import { RatingsDiary, type DiaryEntry } from "@/components/RatingsDiary";
+import { CriticProfile } from "@/components/CriticProfile";
+import { Badges } from "@/components/Badges";
 import { SignInGate } from "@/components/SignInGate";
+import { getProfileStats, type ProfileStats } from "@/lib/profileStats";
+import { getCurrentUser } from "@/lib/auth";
 import type { Movie } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -33,15 +38,13 @@ export default async function PublicProfilePage({
   // Profile lookup — citext makes the eq case-insensitive.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, avatar_id, created_at")
+    .select("id, username, avatar_id, created_at, hot_take")
     .eq("username", username)
     .maybeSingle();
 
   if (!profile) notFound();
 
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const viewer = await getCurrentUser();
   const isLoggedIn = !!viewer;
 
   // Only fetch the gated content if the viewer is signed in — saves three
@@ -51,8 +54,11 @@ export default async function PublicProfilePage({
   let favorites: FavMovie[] = [];
   let watchlist: WlMovie[] = [];
   let diary: DiaryEntry[] = [];
+  let stats: ProfileStats | null = null;
 
   if (isLoggedIn) {
+    stats = await getProfileStats(supabase, profile.id as string);
+
     const [favsRes, wlRes, diaryRes] = await Promise.all([
       supabase
         .from("favorite_movies")
@@ -76,7 +82,7 @@ export default async function PublicProfilePage({
       supabase
         .from("user_movie_ratings")
         .select(
-          `tmdb_id, rating, comment, updated_at, movies:tmdb_id (
+          `tmdb_id, rating, comment, comment_spoiler, updated_at, movies:tmdb_id (
             title, poster_url, release_date
           )`,
         )
@@ -111,6 +117,7 @@ export default async function PublicProfilePage({
           rating: Number(r.rating),
           updated_at: r.updated_at as string,
           comment: (r.comment as string | null) ?? null,
+          is_spoiler: !!r.comment_spoiler,
           movie: m,
         } satisfies DiaryEntry;
       })
@@ -149,7 +156,43 @@ export default async function PublicProfilePage({
           <div className="profile-meta">
             <h1 className="username-display">@{profile.username}</h1>
             <p className="meta">Joined {joined}</p>
+            {profile.hot_take && (
+              <blockquote className="hot-take-quote">
+                {censorComment(profile.hot_take as string)}
+              </blockquote>
+            )}
           </div>
+        </section>
+
+        <section className="profile-section">
+          <h2 className="profile-section-title">
+            <span className="landing-grad">Critic personality</span>
+          </h2>
+          {!isLoggedIn || !stats ? (
+            <SignInGate
+              label={`See how @${profile.username} rates vs the crowd`}
+              nextPath={nextPath}
+            />
+          ) : (
+            <CriticProfile
+              stats={stats.critic}
+              name={profile.username as string}
+            />
+          )}
+        </section>
+
+        <section className="profile-section">
+          <h2 className="profile-section-title">
+            <span className="landing-grad">Badges</span>
+          </h2>
+          {!isLoggedIn || !stats ? (
+            <SignInGate
+              label={`See @${profile.username}'s badges`}
+              nextPath={nextPath}
+            />
+          ) : (
+            <Badges badges={stats.badges} />
+          )}
         </section>
 
         <section className="profile-section">
