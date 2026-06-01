@@ -22,6 +22,30 @@ export function MovieGridSkeleton({ count = 12 }: { count?: number }) {
   );
 }
 
+// Matches the Hot This Week section (HomeFeedSection): an eyebrow/title block
+// plus the tight 6-up grid. Used as the Suspense fallback for the home feed so
+// only the data-driven region streams — the hero + search render instantly.
+export function HomeFeedSkeleton() {
+  return (
+    <div className="container home-feed" aria-hidden="true">
+      <section className="home-feed-section">
+        <header className="home-feed-head">
+          <div className="sk sk-line" style={{ width: 170, height: 26 }} />
+          <div
+            className="sk sk-line"
+            style={{ width: 210, height: 14, marginTop: 10 }}
+          />
+        </header>
+        <div className="grid home-feed-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MovieCardSkeleton key={i} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function DiaryRowSkeleton() {
   return (
     <div className="sk-diary-row" aria-hidden="true">

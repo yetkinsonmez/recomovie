@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getUserId } from "@/lib/auth";
-import { AVATAR_BY_ID } from "@/lib/avatars";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 const HOT_TAKE_MAX = 180;
+
+// Path inside the avatars bucket where a user's photo lives. The folder is the
+// user id, which the storage RLS policies key ownership on.
+const AVATAR_OBJECT = (userId: string) => `${userId}/avatar.webp`;
 
 export async function updateUsername(formData: FormData) {
   const supabase = await createClient();
@@ -52,17 +55,50 @@ export async function updateHotTake(formData: FormData) {
   return { ok: true as const };
 }
 
-export async function updateAvatar(formData: FormData) {
-  const supabase = await createClient();
+// Set the profile photo. The file itself is uploaded to storage client-side
+// (RLS scopes it to the user's own folder); this records the resulting public
+// URL on the profile. We only accept URLs that point at this user's own object
+// in our avatars bucket, so a caller can't set an arbitrary remote image.
+export async function updateAvatarUrl(url: string) {
   const userId = await getUserId();
   if (!userId) return { error: "Not signed in" };
 
-  const avatarId = String(formData.get("avatar_id") ?? "");
-  if (!AVATAR_BY_ID.has(avatarId)) return { error: "Unknown avatar" };
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return { error: "Storage not configured" };
+  const expectedPrefix = `${base}/storage/v1/object/public/avatars/${userId}/`;
+  // Strip the cache-busting query before checking the path.
+  const withoutQuery = url.split("?")[0];
+  if (!withoutQuery.startsWith(expectedPrefix)) {
+    return { error: "Invalid avatar URL" };
+  }
+
+  // TODO(moderation): before accepting, run the uploaded image through an
+  // image-moderation check (e.g. OpenAI omni-moderation) and reject NSFW here.
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: url })
+    .eq("id", userId);
+
+  if (error) return { error: error.message };
+  revalidatePath("/profile");
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
+// Clear the uploaded photo (reverting to the preset/default) and best-effort
+// delete the stored file.
+export async function removeAvatar() {
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
+
+  const supabase = await createClient();
+  await supabase.storage.from("avatars").remove([AVATAR_OBJECT(userId)]);
 
   const { error } = await supabase
     .from("profiles")
-    .update({ avatar_id: avatarId })
+    .update({ avatar_url: null })
     .eq("id", userId);
 
   if (error) return { error: error.message };

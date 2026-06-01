@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/server";
 import { VibeSearch } from "@/components/VibeSearch";
 import { VibeResults } from "@/components/VibeResults";
-import { VibeResultsSkeleton } from "@/components/Skeletons";
+import { VibeResultsSkeleton, HomeFeedSkeleton } from "@/components/Skeletons";
 import { HomeFeedSection } from "@/components/HomeFeedSection";
 import { OnboardingSwipe } from "@/components/OnboardingSwipe";
 import { Reveal } from "@/components/Reveal";
@@ -32,6 +32,40 @@ export default async function HomePage({
     );
   }
 
+  return (
+    <main>
+      <section className="landing">
+        <div className="landing-orb landing-orb-1" aria-hidden="true" />
+        <div className="landing-orb landing-orb-2" aria-hidden="true" />
+        <div className="landing-inner">
+          <p className="landing-eyebrow">✦ Theme-matched movie discovery</p>
+          <h1 className="landing-title">
+            What do you feel like
+            <br />
+            <span className="landing-grad">watching tonight?</span>
+          </h1>
+          <p className="landing-sub">
+            Describe a mood, a plot, a vibe — recomovie finds the film that fits
+            the feeling, not just the genre.
+          </p>
+          <VibeSearch />
+          <p className="landing-scroll-hint" aria-hidden="true">
+            ↓ Or scroll for what's hot this week
+          </p>
+        </div>
+      </section>
+
+      {/* The hero above needs no data and paints instantly. Only the feed
+          below depends on the DB, so it streams in behind a matching
+          skeleton instead of blocking the whole page. */}
+      <Suspense fallback={<HomeFeedSkeleton />}>
+        <HomeFeed />
+      </Suspense>
+    </main>
+  );
+}
+
+async function HomeFeed() {
   // Auth check controls which feed sections we render below the hero.
   const authed = await createClient();
   const user = await getCurrentUser();
@@ -78,7 +112,6 @@ export default async function HomePage({
       // render keeps the carousel feeling alive between visits.
       const [forYouRes, ratedListRes] = await Promise.all([
         authed.rpc("match_movies_for_user", {
-          p_user_id: user.id,
           p_count: 12,
           p_min_rating: 6.0,
         }),
@@ -112,29 +145,7 @@ export default async function HomePage({
   }
 
   return (
-    <main>
-      <section className="landing">
-        <div className="landing-orb landing-orb-1" aria-hidden="true" />
-        <div className="landing-orb landing-orb-2" aria-hidden="true" />
-        <div className="landing-inner">
-          <p className="landing-eyebrow">✦ Theme-matched movie discovery</p>
-          <h1 className="landing-title">
-            What do you feel like
-            <br />
-            <span className="landing-grad">watching tonight?</span>
-          </h1>
-          <p className="landing-sub">
-            Describe a mood, a plot, a vibe — recomovie finds the film that fits
-            the feeling, not just the genre.
-          </p>
-          <VibeSearch />
-          <p className="landing-scroll-hint" aria-hidden="true">
-            ↓ Or scroll for what's hot this week
-          </p>
-        </div>
-      </section>
-
-      <div className="container home-feed">
+    <div className="container home-feed">
         <Reveal>
           <HomeFeedSection
             title={
@@ -197,7 +208,6 @@ export default async function HomePage({
             />
           </Reveal>
         )}
-      </div>
-    </main>
+    </div>
   );
 }

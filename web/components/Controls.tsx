@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const GENRES = [
@@ -75,6 +75,11 @@ export function Controls() {
   const currentGenre = searchParams.get("genre") ?? "";
   const currentSort = searchParams.get("sort") ?? "popularity";
 
+  // isPending stays true from navigation until the new results have streamed
+  // in, so it drives the in-box spinner — instant feedback the moment a search
+  // fires, bridging the gap before the results skeleton appears.
+  const [isPending, startTransition] = useTransition();
+
   function navigate(changes: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(changes)) {
@@ -83,7 +88,9 @@ export function Controls() {
     }
     params.delete("page"); // any filter change returns to page 1
     const qs = params.toString();
-    router.push(qs ? `${pathname}?${qs}` : pathname);
+    startTransition(() => {
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    });
   }
 
   // Debounce the search box so we navigate ~once the user pauses typing.
@@ -97,9 +104,13 @@ export function Controls() {
 
   return (
     <div className="controls">
-      <div className="search-wrap">
+      <div className="search-wrap" aria-busy={isPending}>
         <span className="control-label">Search</span>
-        <SearchIcon />
+        {isPending ? (
+          <span className="search-spinner" aria-hidden="true" />
+        ) : (
+          <SearchIcon />
+        )}
         <input
           className="search"
           type="search"

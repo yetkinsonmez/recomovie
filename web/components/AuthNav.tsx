@@ -49,11 +49,11 @@ export async function AuthNav() {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, avatar_id")
+    .select("username, avatar_url")
     .eq("id", user.id)
     .single();
 
   const label = profile?.username ? `@${profile.username}` : (user.email ?? "Account");
 
-  return <UserMenu label={label} avatar={avatarSrc(profile?.avatar_id)} />;
+  return <UserMenu label={label} avatar={avatarSrc(profile?.avatar_url)} />;
 }

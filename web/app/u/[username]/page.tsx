@@ -38,7 +38,7 @@ export default async function PublicProfilePage({
   // Profile lookup — citext makes the eq case-insensitive.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, avatar_id, created_at, hot_take")
+    .select("id, username, avatar_url, created_at, hot_take")
     .eq("username", username)
     .maybeSingle();
 
@@ -146,7 +146,7 @@ export default async function PublicProfilePage({
         <section className="profile-header">
           <div className="public-avatar">
             <Image
-              src={avatarSrc(profile.avatar_id)}
+              src={avatarSrc(profile.avatar_url)}
               alt=""
               width={120}
               height={120}

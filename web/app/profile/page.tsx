@@ -1,6 +1,7 @@
+import { Suspense, cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AvatarPicker } from "@/components/AvatarPicker";
+import { AvatarUploader } from "@/components/AvatarUploader";
 import { FavoriteMovies } from "@/components/FavoriteMovies";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { RatingsDiary, type DiaryEntry } from "@/components/RatingsDiary";
@@ -17,36 +18,39 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login?message=Sign in to see your profile");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_id, hot_take")
-    .eq("id", user.id)
-    .single();
-
-  const { data: favRows } = await supabase
-    .from("favorite_movies")
-    .select(
-      `position, tmdb_id, movies:tmdb_id (
-        tmdb_id, title, poster_url, release_date, vote_average, genres_text
-      )`,
-    )
-    .eq("user_id", user.id)
-    .order("position", { ascending: true });
+  // These three reads are independent — fire them together instead of in
+  // series. The heavier stats aggregation is streamed separately (below).
+  const [{ data: profile }, { data: favRows }, { data: ratingRows }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("username, avatar_url, hot_take")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("favorite_movies")
+        .select(
+          `position, tmdb_id, movies:tmdb_id (
+            tmdb_id, title, poster_url, release_date, vote_average, genres_text
+          )`,
+        )
+        .eq("user_id", user.id)
+        .order("position", { ascending: true }),
+      supabase
+        .from("user_movie_ratings")
+        .select(
+          `tmdb_id, rating, comment, comment_spoiler, updated_at, movies:tmdb_id (
+            title, poster_url, release_date
+          )`,
+        )
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(50),
+    ]);
 
   const favorites: Movie[] = (favRows ?? [])
     .map((r) => (Array.isArray(r.movies) ? r.movies[0] : r.movies))
     .filter((m): m is Movie => !!m);
-
-  const { data: ratingRows } = await supabase
-    .from("user_movie_ratings")
-    .select(
-      `tmdb_id, rating, comment, comment_spoiler, updated_at, movies:tmdb_id (
-        title, poster_url, release_date
-      )`,
-    )
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false })
-    .limit(50);
 
   const diary: DiaryEntry[] = (ratingRows ?? [])
     .map((r) => {
@@ -63,8 +67,6 @@ export default async function ProfilePage() {
     })
     .filter((e): e is DiaryEntry => !!e);
 
-  const stats = await getProfileStats(supabase, user.id);
-
   return (
     <main className="profile-stage">
       <div className="landing-orb landing-orb-1" aria-hidden="true" />
@@ -72,7 +74,10 @@ export default async function ProfilePage() {
 
       <div className="profile-inner">
         <section className="profile-header">
-          <AvatarPicker currentAvatarId={profile?.avatar_id ?? null} />
+          <AvatarUploader
+            userId={user.id}
+            avatarUrl={profile?.avatar_url ?? null}
+          />
           <div className="profile-meta">
             <h1 className="username-display">
               {profile?.username ? `@${profile.username}` : "Set your username"}
@@ -120,7 +125,13 @@ export default async function ProfilePage() {
           <p className="profile-section-sub">
             How your ratings compare to the crowd, genre by genre.
           </p>
-          <CriticProfile stats={stats.critic} />
+          <Suspense
+            fallback={
+              <div className="sk" style={{ height: 220, borderRadius: 14 }} />
+            }
+          >
+            <CriticData userId={user.id} />
+          </Suspense>
         </section>
 
         <section className="profile-section">
@@ -130,7 +141,13 @@ export default async function ProfilePage() {
           <p className="profile-section-sub">
             Milestones you've unlocked across volume, taste and social.
           </p>
-          <Badges badges={stats.badges} />
+          <Suspense
+            fallback={
+              <div className="sk" style={{ height: 120, borderRadius: 14 }} />
+            }
+          >
+            <BadgesData userId={user.id} />
+          </Suspense>
         </section>
 
         <section className="profile-section">
@@ -145,4 +162,22 @@ export default async function ProfilePage() {
       </div>
     </main>
   );
+}
+
+// Both stats sections derive from one ~2000-row aggregation. cache() dedupes it
+// per request, so the two streamed components below share a single query while
+// each renders behind its own Suspense boundary.
+const loadStats = cache(async (userId: string) => {
+  const supabase = await createClient();
+  return getProfileStats(supabase, userId);
+});
+
+async function CriticData({ userId }: { userId: string }) {
+  const { critic } = await loadStats(userId);
+  return <CriticProfile stats={critic} />;
+}
+
+async function BadgesData({ userId }: { userId: string }) {
+  const { badges } = await loadStats(userId);
+  return <Badges badges={badges} />;
 }

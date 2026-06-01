@@ -13,7 +13,7 @@ export interface MovieDiaryEntry {
   rating: number;
   updated_at: string;
   username: string;
-  avatar_id: string | null;
+  avatar_url: string | null;
   user_id: string;
   comment: string | null;
   is_spoiler: boolean;
@@ -141,7 +141,7 @@ export function MovieDiary({
           <div className="movie-diary-head">
             <Link href={`/u/${e.username}`} className="movie-diary-user">
               <Image
-                src={avatarSrc(e.avatar_id)}
+                src={avatarSrc(e.avatar_url)}
                 alt=""
                 width={36}
                 height={36}

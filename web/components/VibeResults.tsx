@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { embedQuery } from "@/lib/embed";
-import { rateLimit } from "@/lib/rateLimit";
+import { clientIp, rateLimitKey } from "@/lib/rateLimit";
 import { VibeResultsExplorer } from "@/components/VibeResultsExplorer";
 import type { Recommendation } from "@/lib/types";
 
@@ -11,23 +11,28 @@ const MIN_SIMILARITY = 0.5;
 const RATE_LIMIT = 15;
 const RATE_WINDOW_SECONDS = 60;
 
+// Thrown from the cache-miss hook when the caller is over their embedding
+// budget, so we can tell it apart from a genuine embed/search failure.
+class RateLimitedError extends Error {}
+
 export async function VibeResults({ mood }: { mood: string }) {
   let results: Recommendation[] = [];
   let failed = false;
 
-  const allowed = await rateLimit("vibe", RATE_LIMIT, RATE_WINDOW_SECONDS);
-  if (!allowed) {
-    return (
-      <section>
-        <p className="error">
-          You’re searching a little fast — give it a few seconds and try again.
-        </p>
-      </section>
-    );
-  }
+  // Resolve the IP in request scope (headers aren't available inside the cache
+  // below). The limit is only charged on a cache miss — a real paid call — so
+  // exploring already-cached moods never burns budget.
+  const ip = await clientIp();
 
   try {
-    const vector = await embedQuery(mood);
+    const vector = await embedQuery(mood, async () => {
+      const allowed = await rateLimitKey(
+        `vibe:${ip}`,
+        RATE_LIMIT,
+        RATE_WINDOW_SECONDS,
+      );
+      if (!allowed) throw new RateLimitedError();
+    });
     const { data, error } = await supabase.rpc("match_movies_by_embedding", {
       query_embedding: JSON.stringify(vector),
       match_count: MATCH_COUNT,
@@ -41,7 +46,18 @@ export async function VibeResults({ mood }: { mood: string }) {
       );
     }
   } catch (err) {
-    console.error("[vibe] embed/search failed:", err);
+    if (err instanceof RateLimitedError) {
+      return (
+        <section>
+          <p className="error">
+            You’re searching a little fast — give it a few seconds and try
+            again.
+          </p>
+        </section>
+      );
+    }
+    const reason = err instanceof Error ? err.message || err.name : String(err);
+    console.error("[vibe] embed/search failed:", reason);
     failed = true;
   }
 

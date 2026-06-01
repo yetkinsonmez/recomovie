@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
@@ -29,6 +35,11 @@ export function CommandPalette() {
   const [results, setResults] = useState<Result[]>([]);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(false);
+  // The movie we're navigating to: drives the row spinner + top progress bar so
+  // there's continuous feedback from "Enter" until the movie page commits,
+  // instead of the palette vanishing into a blank gap.
+  const [goingTo, setGoingTo] = useState<number | null>(null);
+  const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
@@ -101,11 +112,29 @@ export function CommandPalette() {
 
   const go = useCallback(
     (tmdbId: number) => {
-      setOpen(false);
-      router.push(`/movie/${tmdbId}`);
+      if (goingTo !== null) return; // already navigating
+      setGoingTo(tmdbId);
+      // Keep the palette mounted while the route loads; the transition stays
+      // pending until the movie page (its loading.tsx) is ready, then we close.
+      startTransition(() => {
+        router.push(`/movie/${tmdbId}`);
+      });
     },
-    [router],
+    [router, goingTo],
   );
+
+  // Close the palette once the navigation has committed.
+  useEffect(() => {
+    if (goingTo !== null && !isPending) {
+      setOpen(false);
+      setGoingTo(null);
+    }
+  }, [goingTo, isPending]);
+
+  // Reset navigation state whenever the palette is dismissed.
+  useEffect(() => {
+    if (!open) setGoingTo(null);
+  }, [open]);
 
   function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Escape") {
@@ -141,8 +170,12 @@ export function CommandPalette() {
               role="dialog"
               aria-modal="true"
               aria-label="Search movies"
+              aria-busy={isPending}
               onMouseDown={(e) => e.stopPropagation()}
             >
+              {isPending && (
+                <span className="cmdk-progress" aria-hidden="true" />
+              )}
               <div className="cmdk-input-row">
                 <span className="cmdk-input-icon">
                   <SearchIcon />
@@ -177,7 +210,7 @@ export function CommandPalette() {
                         <button
                           type="button"
                           data-index={i}
-                          className={`cmdk-result${i === active ? " is-active" : ""}`}
+                          className={`cmdk-result${i === active ? " is-active" : ""}${goingTo === r.tmdb_id ? " is-loading" : ""}`}
                           onMouseEnter={() => setActive(i)}
                           onClick={() => go(r.tmdb_id)}
                         >
@@ -194,6 +227,9 @@ export function CommandPalette() {
                               {r.vote_average ? ` · ★ ${r.vote_average.toFixed(1)}` : ""}
                             </span>
                           </span>
+                          {goingTo === r.tmdb_id && (
+                            <span className="cmdk-result-spinner" aria-hidden="true" />
+                          )}
                         </button>
                       </li>
                     );

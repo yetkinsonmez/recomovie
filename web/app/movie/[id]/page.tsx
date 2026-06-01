@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -14,6 +16,7 @@ import { MovieDiary } from "@/components/MovieDiary";
 import { SignInGate } from "@/components/SignInGate";
 import { Reveal } from "@/components/Reveal";
 import { BackLink } from "@/components/BackLink";
+import { MovieDiaryRowSkeleton } from "@/components/Skeletons";
 import { getRatedIds } from "@/lib/userEngagement";
 import { getCurrentUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/siteUrl";
@@ -28,6 +31,46 @@ import type {
   RegionProviders,
 } from "@/lib/types";
 
+const MOVIE_SELECT =
+  "tmdb_id,title,overview,genres_text,poster_url,backdrop_url,release_date,runtime,vote_average,vote_count,tagline,director,top_cast,trailer_youtube_key,streaming_providers,mpaa_rating";
+
+// ── Cached, per-movie static data ────────────────────────────────────────────
+// The movie row and its recommendations are the same for every viewer and
+// rarely change (the row only drifts a cosmetic vote_count/avg when someone
+// rates it). Both are keyed by tmdb_id and cached for a day, so repeat/popular
+// pages skip the DB entirely — most importantly the heavy pgvector match_movies
+// RPC. The per-viewer bits (rating, watchlist, diary, rec-dimming) are fetched
+// separately and streamed via Suspense. generateMetadata shares getMovieRow, so
+// the row is fetched at most once per cache-miss request.
+function getMovieRow(tmdbId: number) {
+  return unstable_cache(
+    async (): Promise<MovieDetail | null> => {
+      const { data } = await supabase
+        .from("movies")
+        .select(MOVIE_SELECT)
+        .eq("tmdb_id", tmdbId)
+        .maybeSingle();
+      return (data as MovieDetail | null) ?? null;
+    },
+    ["movie-row", String(tmdbId)],
+    { revalidate: 86400, tags: [`movie-${tmdbId}`] },
+  )();
+}
+
+function getRecommendations(tmdbId: number) {
+  return unstable_cache(
+    async (): Promise<Recommendation[]> => {
+      const { data } = await supabase.rpc("match_movies", {
+        p_tmdb_id: tmdbId,
+        p_count: 10,
+      });
+      return (data ?? []) as Recommendation[];
+    },
+    ["movie-recs", String(tmdbId)],
+    { revalidate: 86400, tags: [`movie-${tmdbId}`] },
+  )();
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -37,23 +80,19 @@ export async function generateMetadata({
   const tmdbId = Number(id);
   if (!Number.isFinite(tmdbId)) return {};
 
-  const { data } = await supabase
-    .from("movies")
-    .select("title, overview, release_date, poster_url, backdrop_url, tagline")
-    .eq("tmdb_id", tmdbId)
-    .single();
+  const data = await getMovieRow(tmdbId);
   if (!data) return {};
 
   const year = data.release_date ? data.release_date.slice(0, 4) : null;
   const title = year ? `${data.title} (${year}) — recomovie` : `${data.title} — recomovie`;
   const description =
-    (data.tagline as string | null) ||
-    ((data.overview as string | null)?.slice(0, 180) ?? null) ||
+    data.tagline ||
+    (data.overview?.slice(0, 180) ?? null) ||
     "Find films matched on plot, theme and tone — not just genre.";
   // Prefer the wider backdrop for social previews; fall back to poster.
-  const image = (data.backdrop_url as string | null) ?? (data.poster_url as string | null);
+  const image = data.backdrop_url ?? data.poster_url;
   const ogImages = image
-    ? [{ url: image, width: 1280, height: 720, alt: data.title as string }]
+    ? [{ url: image, width: 1280, height: 720, alt: data.title }]
     : undefined;
 
   return {
@@ -105,28 +144,13 @@ export default async function MoviePage({
   const tmdbId = Number(id);
   if (!Number.isFinite(tmdbId)) notFound();
 
-  // These three are independent — the movie row and recommendations only need
-  // the tmdb id, and the auth lookup needs neither. Fire them together so the
-  // slowest (the pgvector recs RPC) overlaps with everything else instead of
-  // queuing behind it.
-  const [movieRes, recsRes, user] = await Promise.all([
-    supabase
-      .from("movies")
-      .select(
-        "tmdb_id,title,overview,genres_text,poster_url,backdrop_url,release_date,runtime,vote_average,vote_count,tagline,director,top_cast,trailer_youtube_key,streaming_providers,mpaa_rating",
-      )
-      .eq("tmdb_id", tmdbId)
-      .single(),
-    supabase.rpc("match_movies", { p_tmdb_id: tmdbId, p_count: 10 }),
-    getCurrentUser(),
+  // Both are cached per movie, so this is a DB hit only on a cache miss.
+  const [film, recommendations] = await Promise.all([
+    getMovieRow(tmdbId),
+    getRecommendations(tmdbId),
   ]);
+  if (!film) notFound();
 
-  const { data: movie, error } = movieRes;
-  if (error || !movie) notFound();
-
-  const recommendations = (recsRes.data ?? []) as Recommendation[];
-
-  const film = movie as MovieDetail;
   const year = film.release_date ? film.release_date.slice(0, 4) : "";
   const backdrop = film.backdrop_url
     ? film.backdrop_url.replace(/\/w\d+\//, "/original/")
@@ -180,131 +204,16 @@ export default async function MoviePage({
       : {}),
   };
 
-  // Auth-aware: load the user's existing rating (if any) for this movie.
-  const authed = await createClient();
-  let userRating: number | null = null;
-  let userComment: string | null = null;
-  let userSpoiler = false;
-  let inWatchlist = false;
-  if (user) {
-    const [{ data: rateRow }, { data: wlRow }] = await Promise.all([
-      authed
-        .from("user_movie_ratings")
-        .select("rating, comment, comment_spoiler")
-        .eq("user_id", user.id)
-        .eq("tmdb_id", tmdbId)
-        .maybeSingle(),
-      authed
-        .from("watchlist")
-        .select("tmdb_id")
-        .eq("user_id", user.id)
-        .eq("tmdb_id", tmdbId)
-        .maybeSingle(),
-    ]);
-    userRating = rateRow ? Number(rateRow.rating) : null;
-    userComment = rateRow ? ((rateRow.comment as string | null) ?? null) : null;
-    userSpoiler = rateRow ? !!rateRow.comment_spoiler : false;
-    inWatchlist = !!wlRow;
-  }
-
-  // The set of movies this user has already rated — used to dim cards across
-  // the recs grid so they don't get pushed the same things twice. Reuses the
-  // request-cached user, so no extra auth round-trip.
-  const ratedIds = await getRatedIds();
-
-  // Movie-level diary: most recent ratings for this film, joined with their
-  // owners' public profiles. Only fetched when the viewer is signed in —
-  // anonymous visitors see a locked-section prompt instead.
-  type MovieDiaryItem = {
-    rating: number;
-    updated_at: string;
-    username: string;
-    avatar_id: string | null;
-    user_id: string;
-    comment: string | null;
-    is_spoiler: boolean;
-    reactions: Record<ReactionCode, number>;
-    viewer_reaction: ReactionCode | null;
-  };
-  let movieDiary: MovieDiaryItem[] = [];
-  if (user) {
-    const { data: ratingRows } = await supabase
-      .from("user_movie_ratings")
-      .select("rating, comment, comment_spoiler, updated_at, user_id")
-      .eq("tmdb_id", tmdbId)
-      .order("updated_at", { ascending: false })
-      .limit(40);
-
-    const ratingUserIds = Array.from(
-      new Set((ratingRows ?? []).map((r) => r.user_id as string)),
-    );
-
-    const profileByUserId = new Map<
-      string,
-      { username: string | null; avatar_id: string | null }
-    >();
-    if (ratingUserIds.length > 0) {
-      // Two-step join: no direct FK from user_movie_ratings.user_id to
-      // profiles.id (both reference auth.users), so PostgREST can't embed.
-      const { data: profRows } = await supabase
-        .from("profiles")
-        .select("id, username, avatar_id")
-        .in("id", ratingUserIds);
-      for (const p of profRows ?? []) {
-        profileByUserId.set(p.id as string, {
-          username: (p.username ?? null) as string | null,
-          avatar_id: (p.avatar_id ?? null) as string | null,
-        });
-      }
-    }
-
-    // Reactions for these ratings on this movie: per-emoji counts keyed by the
-    // commenter, plus whichever emoji the viewer themselves left.
-    const reactionCounts = new Map<string, Record<ReactionCode, number>>();
-    const viewerReaction = new Map<string, ReactionCode | null>();
-    if (ratingUserIds.length > 0) {
-      const { data: reactRows } = await supabase
-        .from("rating_comment_reactions")
-        .select("rating_user_id, user_id, reaction")
-        .eq("tmdb_id", tmdbId)
-        .in("rating_user_id", ratingUserIds);
-      for (const r of reactRows ?? []) {
-        const code = r.reaction as ReactionCode;
-        if (!isReactionCode(code)) continue;
-        const key = r.rating_user_id as string;
-        const cur = reactionCounts.get(key) ?? emptyReactionCounts();
-        cur[code] += 1;
-        reactionCounts.set(key, cur);
-        if (r.user_id === user.id) viewerReaction.set(key, code);
-      }
-    }
-
-    movieDiary = (ratingRows ?? [])
-      .map((r) => {
-        const p = profileByUserId.get(r.user_id as string);
-        if (!p?.username) return null;
-        return {
-          rating: Number(r.rating),
-          updated_at: r.updated_at as string,
-          username: p.username,
-          avatar_id: p.avatar_id,
-          user_id: r.user_id as string,
-          comment: (r.comment as string | null) ?? null,
-          is_spoiler: !!r.comment_spoiler,
-          reactions:
-            reactionCounts.get(r.user_id as string) ?? emptyReactionCounts(),
-          viewer_reaction: viewerReaction.get(r.user_id as string) ?? null,
-        };
-      })
-      .filter((e): e is MovieDiaryItem => !!e)
-      .slice(0, 30);
-  }
-
   return (
     <main>
+      {/* Escape `<` so a title containing `</script>` can't break out of the
+          tag. JSON-LD only ever contains `<` inside string values, so this is
+          safe and standard for inlined ld+json. */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+        }}
       />
       <section className={backdrop ? "movie-hero has-backdrop" : "movie-hero"}>
         {backdrop && (
@@ -407,25 +316,11 @@ export default async function MoviePage({
           </div>
 
           <aside className="cast-watch-aside">
-            <section className="cw-card">
-              <h3 className="cw-card-title">Your rating</h3>
-              <RatingWidget
-                tmdbId={tmdbId}
-                initialRating={userRating}
-                initialComment={userComment}
-                initialSpoiler={userSpoiler}
-                isSignedIn={!!user}
-              />
-            </section>
-
-            <section className="cw-card">
-              <h3 className="cw-card-title">Watchlist</h3>
-              <WatchlistButton
-                tmdbId={tmdbId}
-                initialInList={inWatchlist}
-                isSignedIn={!!user}
-              />
-            </section>
+            {/* Per-viewer cards stream in; the static "Where to watch" renders
+                immediately below them. */}
+            <Suspense fallback={<UserActionsSkeleton />}>
+              <UserActions tmdbId={tmdbId} />
+            </Suspense>
 
             {region && (
               <section className="cw-card">
@@ -445,21 +340,9 @@ export default async function MoviePage({
 
         <Reveal as="section" className="detail-section">
           <h2>Ratings &amp; comments</h2>
-          {!user ? (
-            <SignInGate
-              label="See what other viewers thought"
-              nextPath={`/movie/${tmdbId}`}
-            />
-          ) : movieDiary.length === 0 ? (
-            <p className="meta">No ratings yet — be the first.</p>
-          ) : (
-            <MovieDiary
-              entries={movieDiary}
-              tmdbId={tmdbId}
-              viewerId={user?.id ?? null}
-              isSignedIn={!!user}
-            />
-          )}
+          <Suspense fallback={<DiarySkeleton />}>
+            <DiarySection tmdbId={tmdbId} />
+          </Suspense>
         </Reveal>
 
 
@@ -468,18 +351,240 @@ export default async function MoviePage({
           {recommendations.length === 0 ? (
             <p className="error">No recommendations available.</p>
           ) : (
-            <section className="grid">
-              {recommendations.map((rec) => (
-                <MovieCard
-                  key={rec.tmdb_id}
-                  movie={rec}
-                  isRated={ratedIds.has(rec.tmdb_id)}
-                />
-              ))}
-            </section>
+            <Suspense
+              fallback={<RecGridView recs={recommendations} ratedIds={EMPTY_RATED} />}
+            >
+              <RecommendationsGrid recs={recommendations} />
+            </Suspense>
           )}
         </Reveal>
       </div>
     </main>
   );
+}
+
+// ── Streamed, per-viewer sections ────────────────────────────────────────────
+
+type MovieDiaryItem = {
+  rating: number;
+  updated_at: string;
+  username: string;
+  avatar_url: string | null;
+  user_id: string;
+  comment: string | null;
+  is_spoiler: boolean;
+  reactions: Record<ReactionCode, number>;
+  viewer_reaction: ReactionCode | null;
+};
+
+const EMPTY_RATED: Set<number> = new Set();
+
+function UserActionsSkeleton() {
+  return (
+    <>
+      <section className="cw-card">
+        <h3 className="cw-card-title">Your rating</h3>
+        <div className="sk" style={{ height: 56, borderRadius: 12 }} />
+      </section>
+      <section className="cw-card">
+        <h3 className="cw-card-title">Watchlist</h3>
+        <div className="sk" style={{ height: 44, borderRadius: 12 }} />
+      </section>
+    </>
+  );
+}
+
+// The viewer's own rating + watchlist state for this film. Uses the cookie
+// (createClient) client so RLS scopes to the signed-in user.
+async function UserActions({ tmdbId }: { tmdbId: number }) {
+  const user = await getCurrentUser();
+
+  let userRating: number | null = null;
+  let userComment: string | null = null;
+  let userSpoiler = false;
+  let inWatchlist = false;
+
+  if (user) {
+    const authed = await createClient();
+    const [{ data: rateRow }, { data: wlRow }] = await Promise.all([
+      authed
+        .from("user_movie_ratings")
+        .select("rating, comment, comment_spoiler")
+        .eq("user_id", user.id)
+        .eq("tmdb_id", tmdbId)
+        .maybeSingle(),
+      authed
+        .from("watchlist")
+        .select("tmdb_id")
+        .eq("user_id", user.id)
+        .eq("tmdb_id", tmdbId)
+        .maybeSingle(),
+    ]);
+    userRating = rateRow ? Number(rateRow.rating) : null;
+    userComment = rateRow ? ((rateRow.comment as string | null) ?? null) : null;
+    userSpoiler = rateRow ? !!rateRow.comment_spoiler : false;
+    inWatchlist = !!wlRow;
+  }
+
+  return (
+    <>
+      <section className="cw-card">
+        <h3 className="cw-card-title">Your rating</h3>
+        <RatingWidget
+          tmdbId={tmdbId}
+          initialRating={userRating}
+          initialComment={userComment}
+          initialSpoiler={userSpoiler}
+          isSignedIn={!!user}
+        />
+      </section>
+
+      <section className="cw-card">
+        <h3 className="cw-card-title">Watchlist</h3>
+        <WatchlistButton
+          tmdbId={tmdbId}
+          initialInList={inWatchlist}
+          isSignedIn={!!user}
+        />
+      </section>
+    </>
+  );
+}
+
+function DiarySkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <MovieDiaryRowSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+// Movie-level diary: most recent ratings for this film, joined with their
+// owners' public profiles and reaction tallies. All public data, so the anon
+// client is fine; the viewer's own reaction is found by matching user.id.
+async function DiarySection({ tmdbId }: { tmdbId: number }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return (
+      <SignInGate
+        label="See what other viewers thought"
+        nextPath={`/movie/${tmdbId}`}
+      />
+    );
+  }
+
+  const { data: ratingRows } = await supabase
+    .from("user_movie_ratings")
+    .select("rating, comment, comment_spoiler, updated_at, user_id")
+    .eq("tmdb_id", tmdbId)
+    .order("updated_at", { ascending: false })
+    .limit(40);
+
+  const ratingUserIds = Array.from(
+    new Set((ratingRows ?? []).map((r) => r.user_id as string)),
+  );
+
+  const profileByUserId = new Map<
+    string,
+    { username: string | null; avatar_url: string | null }
+  >();
+  const reactionCounts = new Map<string, Record<ReactionCode, number>>();
+  const viewerReaction = new Map<string, ReactionCode | null>();
+
+  if (ratingUserIds.length > 0) {
+    // profiles and reactions both only depend on ratingUserIds and are
+    // independent of each other — fetch them in parallel.
+    const [profRes, reactRes] = await Promise.all([
+      // Two-step join: no direct FK from user_movie_ratings.user_id to
+      // profiles.id (both reference auth.users), so PostgREST can't embed.
+      supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", ratingUserIds),
+      supabase
+        .from("rating_comment_reactions")
+        .select("rating_user_id, user_id, reaction")
+        .eq("tmdb_id", tmdbId)
+        .in("rating_user_id", ratingUserIds),
+    ]);
+
+    for (const p of profRes.data ?? []) {
+      profileByUserId.set(p.id as string, {
+        username: (p.username ?? null) as string | null,
+        avatar_url: (p.avatar_url ?? null) as string | null,
+      });
+    }
+
+    for (const r of reactRes.data ?? []) {
+      const code = r.reaction as ReactionCode;
+      if (!isReactionCode(code)) continue;
+      const key = r.rating_user_id as string;
+      const cur = reactionCounts.get(key) ?? emptyReactionCounts();
+      cur[code] += 1;
+      reactionCounts.set(key, cur);
+      if (r.user_id === user.id) viewerReaction.set(key, code);
+    }
+  }
+
+  const movieDiary = (ratingRows ?? [])
+    .map((r) => {
+      const p = profileByUserId.get(r.user_id as string);
+      if (!p?.username) return null;
+      return {
+        rating: Number(r.rating),
+        updated_at: r.updated_at as string,
+        username: p.username,
+        avatar_url: p.avatar_url,
+        user_id: r.user_id as string,
+        comment: (r.comment as string | null) ?? null,
+        is_spoiler: !!r.comment_spoiler,
+        reactions:
+          reactionCounts.get(r.user_id as string) ?? emptyReactionCounts(),
+        viewer_reaction: viewerReaction.get(r.user_id as string) ?? null,
+      };
+    })
+    .filter((e): e is MovieDiaryItem => !!e)
+    .slice(0, 30);
+
+  if (movieDiary.length === 0) {
+    return <p className="meta">No ratings yet — be the first.</p>;
+  }
+
+  return (
+    <MovieDiary
+      entries={movieDiary}
+      tmdbId={tmdbId}
+      viewerId={user.id}
+      isSignedIn
+    />
+  );
+}
+
+function RecGridView({
+  recs,
+  ratedIds,
+}: {
+  recs: Recommendation[];
+  ratedIds: Set<number>;
+}) {
+  return (
+    <section className="grid">
+      {recs.map((rec) => (
+        <MovieCard
+          key={rec.tmdb_id}
+          movie={rec}
+          isRated={ratedIds.has(rec.tmdb_id)}
+        />
+      ))}
+    </section>
+  );
+}
+
+// Recs render instantly from cached data; the only per-viewer part is dimming
+// already-rated cards, so the Suspense fallback is the same grid undimmed.
+async function RecommendationsGrid({ recs }: { recs: Recommendation[] }) {
+  const ratedIds = await getRatedIds();
+  return <RecGridView recs={recs} ratedIds={ratedIds} />;
 }

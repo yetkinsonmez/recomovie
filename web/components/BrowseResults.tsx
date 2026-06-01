@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase";
 import { MovieCard } from "@/components/MovieCard";
-import { Controls } from "@/components/Controls";
 import { Pagination } from "@/components/Pagination";
 import type { Movie } from "@/lib/types";
 import { getRatedIds } from "@/lib/userEngagement";
@@ -60,47 +59,45 @@ export async function BrowseResults({
           ? "A-Z"
           : "Most popular";
 
+  if (error) {
+    return <p className="error">Failed to load movies: {error.message}</p>;
+  }
+
+  if (movies.length === 0) {
+    return <p className="empty">No movies match your search.</p>;
+  }
+
   return (
-    <section className="catalog-shell">
-      <Controls />
-
-      {error ? (
-        <p className="error">Failed to load movies: {error.message}</p>
-      ) : movies.length === 0 ? (
-        <p className="empty">No movies match your search.</p>
-      ) : (
-        <>
-          <div className="catalog-summary">
-            <div>
-              <p className="result-count">
-                {total.toLocaleString()} movie{total === 1 ? "" : "s"} · page{" "}
-                {page} of {totalPages}
-              </p>
-              <div className="active-filters" aria-label="Active filters">
-                {q && <span>Search: {q}</span>}
-                {genre && <span>Genre: {genre}</span>}
-                {sortKey !== "popularity" && <span>Sort: {sortLabel}</span>}
-              </div>
-            </div>
+    <>
+      <div className="catalog-summary">
+        <div>
+          <p className="result-count">
+            {total.toLocaleString()} movie{total === 1 ? "" : "s"} · page{" "}
+            {page} of {totalPages}
+          </p>
+          <div className="active-filters" aria-label="Active filters">
+            {q && <span>Search: {q}</span>}
+            {genre && <span>Genre: {genre}</span>}
+            {sortKey !== "popularity" && <span>Sort: {sortLabel}</span>}
           </div>
+        </div>
+      </div>
 
-          <section className="grid catalog-grid">
-            {movies.map((movie) => (
-              <MovieCard
-                key={movie.tmdb_id}
-                movie={movie}
-                isRated={ratedIds.has(movie.tmdb_id)}
-              />
-            ))}
-          </section>
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            baseParams={baseParams.toString()}
-            basePath="/movies"
+      <section className="grid catalog-grid">
+        {movies.map((movie) => (
+          <MovieCard
+            key={movie.tmdb_id}
+            movie={movie}
+            isRated={ratedIds.has(movie.tmdb_id)}
           />
-        </>
-      )}
-    </section>
+        ))}
+      </section>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        baseParams={baseParams.toString()}
+        basePath="/movies"
+      />
+    </>
   );
 }

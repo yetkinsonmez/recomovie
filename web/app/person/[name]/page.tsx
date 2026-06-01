@@ -5,7 +5,10 @@ import { supabase } from "@/lib/supabase";
 import { MovieCard } from "@/components/MovieCard";
 import type { CastMember, Movie } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+// No per-user data — a person's filmography is identical for everyone and only
+// changes when the catalog is re-imported. Cache the rendered page (ISR) so
+// repeat views skip the director + top_cast queries entirely.
+export const revalidate = 86400;
 
 const TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185";
 const SELECT =
