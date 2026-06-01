@@ -22,3 +22,23 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   } = await supabase.auth.getUser();
   return user;
 });
+
+/**
+ * Request-deduped current-user *id* lookup, verified locally.
+ *
+ * Where a caller only needs to know *who* is acting (not the full User
+ * object), `getClaims()` is the faster choice: it verifies the JWT signature
+ * against the cached JWKS endpoint, so there's no network round-trip to the
+ * auth server when the project uses asymmetric signing keys. On legacy
+ * symmetric keys it falls back to a network call, so it's never slower than
+ * getUser().
+ *
+ * Safe for write actions: the RLS policies (auth.uid() = user_id) remain the
+ * real authorization guard — this only reads the already-signed user id out of
+ * the verified token to scope the write.
+ */
+export const getUserId = cache(async (): Promise<string | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims.sub ?? null;
+});

@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { avatarSrc } from "@/lib/avatars";
@@ -16,6 +19,21 @@ export interface MovieDiaryEntry {
   is_spoiler: boolean;
   reactions: Record<ReactionCode, number>;
   viewer_reaction: ReactionCode | null;
+}
+
+type SortKey = "popular" | "newest" | "highest" | "lowest";
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "popular", label: "Most reacted" },
+  { key: "newest", label: "Newest" },
+  { key: "highest", label: "Highest rated" },
+  { key: "lowest", label: "Lowest rated" },
+];
+
+function totalReactions(e: MovieDiaryEntry): number {
+  let sum = 0;
+  for (const code in e.reactions) sum += e.reactions[code as ReactionCode];
+  return sum;
 }
 
 function formatDate(iso: string): string {
@@ -70,9 +88,51 @@ export function MovieDiary({
   viewerId: string | null;
   isSignedIn: boolean;
 }) {
+  // Default to "most reacted" — the comments people found worth responding to
+  // lead, with the rest sorted behind them.
+  const [sort, setSort] = useState<SortKey>("popular");
+
+  const sorted = useMemo(() => {
+    const list = [...entries];
+    const byNewest = (a: MovieDiaryEntry, b: MovieDiaryEntry) =>
+      b.updated_at.localeCompare(a.updated_at);
+    switch (sort) {
+      case "newest":
+        return list.sort(byNewest);
+      case "highest":
+        return list.sort((a, b) => b.rating - a.rating || byNewest(a, b));
+      case "lowest":
+        return list.sort((a, b) => a.rating - b.rating || byNewest(a, b));
+      case "popular":
+      default:
+        return list.sort(
+          (a, b) => totalReactions(b) - totalReactions(a) || byNewest(a, b),
+        );
+    }
+  }, [entries, sort]);
+
   return (
-    <ul className="movie-diary-list">
-      {entries.map((e, idx) => (
+    <>
+      {entries.length > 1 && (
+        <div className="diary-sort">
+          <span className="diary-sort-label meta">Sort</span>
+          <div className="diary-sort-options" role="group" aria-label="Sort comments">
+            {SORTS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                className={`diary-sort-btn ${sort === s.key ? "is-active" : ""}`}
+                aria-pressed={sort === s.key}
+                onClick={() => setSort(s.key)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <ul className="movie-diary-list">
+        {sorted.map((e, idx) => (
         <li
           key={`${e.username}-${idx}`}
           className="movie-diary-row reveal-row"
@@ -119,7 +179,8 @@ export function MovieDiary({
             />
           )}
         </li>
-      ))}
-    </ul>
+        ))}
+      </ul>
+    </>
   );
 }

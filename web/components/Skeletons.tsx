@@ -35,6 +35,26 @@ export function DiaryRowSkeleton() {
   );
 }
 
+export function VibeResultsSkeleton({ mood }: { mood?: string }) {
+  return (
+    <section className="vibe-results-shell" aria-hidden="true">
+      <span className="vibe-results-orb vibe-results-orb-1" />
+      <span className="vibe-results-orb vibe-results-orb-2" />
+      <div className="vibe-results-head">
+        <div>
+          <p className="result-kicker">Matched to your vibe</p>
+          {mood ? (
+            <h1 className="result-title">“{mood}”</h1>
+          ) : (
+            <div className="sk sk-line" style={{ width: 260, height: 28 }} />
+          )}
+        </div>
+      </div>
+      <MovieGridSkeleton count={12} />
+    </section>
+  );
+}
+
 export function MovieDiaryRowSkeleton() {
   return (
     <div className="sk-movie-diary" aria-hidden="true">

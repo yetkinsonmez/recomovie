@@ -2,6 +2,7 @@ import Link from "next/link";
 import { signup } from "@/app/auth/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PasswordInput } from "@/components/PasswordInput";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
 export default async function SignupPage({
   searchParams,
@@ -29,6 +30,12 @@ export default async function SignupPage({
         </div>
 
         {error && <p className="auth-error">{error}</p>}
+
+        <GoogleAuthButton />
+
+        <div className="auth-divider" aria-hidden="true">
+          <span>or</span>
+        </div>
 
         <form action={signup} className="auth-form">
           <label className="auth-label" htmlFor="username">

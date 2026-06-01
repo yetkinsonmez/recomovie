@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getUserId } from "@/lib/auth";
 import { AVATAR_BY_ID } from "@/lib/avatars";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -9,10 +10,8 @@ const HOT_TAKE_MAX = 180;
 
 export async function updateUsername(formData: FormData) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const username = String(formData.get("username") ?? "").trim();
   if (!USERNAME_RE.test(username)) {
@@ -22,7 +21,7 @@ export async function updateUsername(formData: FormData) {
   const { error } = await supabase
     .from("profiles")
     .update({ username })
-    .eq("id", user.id);
+    .eq("id", userId);
 
   if (error) {
     // 23505 = unique_violation
@@ -37,10 +36,8 @@ export async function updateUsername(formData: FormData) {
 
 export async function updateHotTake(formData: FormData) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const raw = String(formData.get("hot_take") ?? "").trim();
   const value = raw ? raw.slice(0, HOT_TAKE_MAX) : null;
@@ -48,7 +45,7 @@ export async function updateHotTake(formData: FormData) {
   const { error } = await supabase
     .from("profiles")
     .update({ hot_take: value })
-    .eq("id", user.id);
+    .eq("id", userId);
 
   if (error) return { error: error.message };
   revalidatePath("/profile");
@@ -57,10 +54,8 @@ export async function updateHotTake(formData: FormData) {
 
 export async function updateAvatar(formData: FormData) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const avatarId = String(formData.get("avatar_id") ?? "");
   if (!AVATAR_BY_ID.has(avatarId)) return { error: "Unknown avatar" };
@@ -68,7 +63,7 @@ export async function updateAvatar(formData: FormData) {
   const { error } = await supabase
     .from("profiles")
     .update({ avatar_id: avatarId })
-    .eq("id", user.id);
+    .eq("id", userId);
 
   if (error) return { error: error.message };
   revalidatePath("/profile");
@@ -78,19 +73,17 @@ export async function updateAvatar(formData: FormData) {
 
 export async function addFavorite(tmdbId: number) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   // Append to the end of the list.
   const { count } = await supabase
     .from("favorite_movies")
     .select("tmdb_id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   const { error } = await supabase.from("favorite_movies").insert({
-    user_id: user.id,
+    user_id: userId,
     tmdb_id: tmdbId,
     position: count ?? 0,
   });
@@ -108,15 +101,13 @@ export async function addFavorite(tmdbId: number) {
 
 export async function removeFavorite(tmdbId: number) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const { error } = await supabase
     .from("favorite_movies")
     .delete()
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("tmdb_id", tmdbId);
 
   if (error) return { error: error.message };

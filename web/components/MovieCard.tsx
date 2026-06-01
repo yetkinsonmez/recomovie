@@ -20,6 +20,13 @@ export function MovieCard({
   const year = movie.release_date ? movie.release_date.slice(0, 4) : "";
   const similarity =
     "similarity" in movie ? Math.round(movie.similarity * 100) : null;
+  // Colour the match badge on a continuous red→orange→green sweep. Anchored so
+  // 60% lands on orange (hue 30) and 80% on full green (hue 140); below 60
+  // slides toward red, ≥80 stays ultra green.
+  const matchHue =
+    similarity === null
+      ? null
+      : Math.max(0, Math.min(140, 30 + (similarity - 60) * 5.5));
   const rating = movie.vote_average ? movie.vote_average.toFixed(1) : null;
   const vtName = `poster-${movie.tmdb_id}`;
 
@@ -45,7 +52,17 @@ export function MovieCard({
           <div className="poster-empty">No image</div>
         )}
         {similarity !== null && (
-          <span className="badge">{similarity}% match</span>
+          <span
+            className="badge"
+            style={
+              {
+                backgroundColor: `hsl(${matchHue} 68% 40%)`,
+                color: "#fff",
+              } as React.CSSProperties
+            }
+          >
+            {similarity}% match
+          </span>
         )}
         {rating && (
           <span className="rating-chip">

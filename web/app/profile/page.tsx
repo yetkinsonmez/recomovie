@@ -6,6 +6,7 @@ import { ProfileSettings } from "@/components/ProfileSettings";
 import { RatingsDiary, type DiaryEntry } from "@/components/RatingsDiary";
 import { CriticProfile } from "@/components/CriticProfile";
 import { Badges } from "@/components/Badges";
+import { UsernameForm } from "@/components/UsernameForm";
 import { getProfileStats } from "@/lib/profileStats";
 import { getCurrentUser } from "@/lib/auth";
 import type { Movie } from "@/lib/types";
@@ -88,6 +89,19 @@ export default async function ProfilePage() {
             hotTake={profile?.hot_take ?? null}
           />
         </section>
+
+        {!profile?.username && (
+          <section className="username-setup">
+            <h2 className="username-setup-title">
+              Pick a <span className="landing-grad">username</span>
+            </h2>
+            <p className="meta">
+              Choose a handle so your ratings and reviews show up across the
+              site. You can change it later in Settings.
+            </p>
+            <UsernameForm current={null} />
+          </section>
+        )}
 
         <section className="profile-section">
           <h2 className="profile-section-title">

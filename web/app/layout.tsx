@@ -5,9 +5,12 @@ import Image from "next/image";
 import { Manrope, Instrument_Serif } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 import { ViewTransitions } from "next-view-transitions";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthNav } from "@/components/AuthNav";
 import { HeaderNav } from "@/components/HeaderNav";
+import { SiteHeader } from "@/components/SiteHeader";
+import { NavLink } from "@/components/NavLink";
+import { CommandPalette } from "@/components/CommandPalette";
+import { SITE_URL } from "@/lib/siteUrl";
 import "./globals.css";
 
 // Body font: humanist sans, refined and readable.
@@ -30,6 +33,7 @@ const displayFont = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "recomovie — find films by their story",
   description:
     "Movie recommendations matched on plot, theme and tone — not just genre.",
@@ -57,29 +61,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           shadow="0 0 8px #c2543a, 0 0 4px #c2543a"
           showSpinner={false}
         />
-        <header className="site-header">
-          <div className="header-inner">
-            <Link href="/" className="logo-link">
-              <Image
-                src="/recomovie-logo.png"
-                alt="recomovie"
-                width={140}
-                height={46}
-                priority
-              />
-            </Link>
-            <HeaderNav>
-              <Link href="/movies" className="nav-link">
-                All movies
-              </Link>
-              <Link href="/watchlist" className="nav-link">
-                Watchlist
-              </Link>
-              <AuthNav />
-              <ThemeToggle />
-            </HeaderNav>
-          </div>
-        </header>
+        <SiteHeader>
+          <Link href="/" className="logo-link">
+            <Image
+              src="/recomovie-logo.png"
+              alt="recomovie"
+              width={140}
+              height={46}
+              priority
+            />
+          </Link>
+          <HeaderNav>
+            <CommandPalette />
+            <NavLink href="/movies">All movies</NavLink>
+            <AuthNav />
+          </HeaderNav>
+        </SiteHeader>
         {children}
         <footer className="site-footer">
           <div className="site-footer-inner">

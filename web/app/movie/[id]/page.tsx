@@ -16,6 +16,7 @@ import { Reveal } from "@/components/Reveal";
 import { BackLink } from "@/components/BackLink";
 import { getRatedIds } from "@/lib/userEngagement";
 import { getCurrentUser } from "@/lib/auth";
+import { SITE_URL } from "@/lib/siteUrl";
 import {
   emptyReactionCounts,
   isReactionCode,
@@ -58,6 +59,9 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: {
+      canonical: `${SITE_URL}/movie/${tmdbId}`,
+    },
     openGraph: {
       title,
       description,
@@ -138,6 +142,44 @@ export default async function MoviePage({
   const genres = splitGenres(film.genres_text);
   const region = pickRegion(film.streaming_providers ?? null);
 
+  // Schema.org Movie markup → rich results (rating stars, cast) in Google.
+  // Only emit aggregateRating when there are actual votes, otherwise Google
+  // flags an invalid/empty rating.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Movie",
+    name: film.title,
+    url: `${SITE_URL}/movie/${tmdbId}`,
+    ...(film.poster_url ? { image: film.poster_url } : {}),
+    ...(film.overview ? { description: film.overview } : {}),
+    ...(film.release_date ? { datePublished: film.release_date } : {}),
+    ...(genres.length ? { genre: genres } : {}),
+    ...(film.runtime ? { duration: `PT${film.runtime}M` } : {}),
+    ...(film.mpaa_rating ? { contentRating: film.mpaa_rating } : {}),
+    ...(film.director
+      ? { director: { "@type": "Person", name: film.director } }
+      : {}),
+    ...(film.top_cast && film.top_cast.length
+      ? {
+          actor: film.top_cast.slice(0, 8).map((c) => ({
+            "@type": "Person",
+            name: c.name,
+          })),
+        }
+      : {}),
+    ...(film.vote_average && film.vote_count
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: film.vote_average.toFixed(1),
+            ratingCount: film.vote_count,
+            bestRating: 10,
+            worstRating: 0,
+          },
+        }
+      : {}),
+  };
+
   // Auth-aware: load the user's existing rating (if any) for this movie.
   const authed = await createClient();
   let userRating: number | null = null;
@@ -191,7 +233,7 @@ export default async function MoviePage({
       .select("rating, comment, comment_spoiler, updated_at, user_id")
       .eq("tmdb_id", tmdbId)
       .order("updated_at", { ascending: false })
-      .limit(24);
+      .limit(40);
 
     const ratingUserIds = Array.from(
       new Set((ratingRows ?? []).map((r) => r.user_id as string)),
@@ -255,11 +297,15 @@ export default async function MoviePage({
         };
       })
       .filter((e): e is MovieDiaryItem => !!e)
-      .slice(0, 12);
+      .slice(0, 30);
   }
 
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <section className={backdrop ? "movie-hero has-backdrop" : "movie-hero"}>
         {backdrop && (
           <Image
@@ -398,7 +444,7 @@ export default async function MoviePage({
         </div>
 
         <Reveal as="section" className="detail-section">
-          <h2>Recent ratings</h2>
+          <h2>Ratings &amp; comments</h2>
           {!user ? (
             <SignInGate
               label="See what other viewers thought"

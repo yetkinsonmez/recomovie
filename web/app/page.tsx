@@ -1,9 +1,11 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { createClient } from "@/lib/supabase/server";
 import { VibeSearch } from "@/components/VibeSearch";
 import { VibeResults } from "@/components/VibeResults";
+import { VibeResultsSkeleton } from "@/components/Skeletons";
 import { HomeFeedSection } from "@/components/HomeFeedSection";
+import { OnboardingSwipe } from "@/components/OnboardingSwipe";
 import { Reveal } from "@/components/Reveal";
 import { getRatedIds } from "@/lib/userEngagement";
 import { getCurrentUser } from "@/lib/auth";
@@ -23,7 +25,9 @@ export default async function HomePage({
     return (
       <main className="container">
         <VibeSearch compact />
-        <VibeResults mood={mood} />
+        <Suspense key={mood} fallback={<VibeResultsSkeleton mood={mood} />}>
+          <VibeResults mood={mood} />
+        </Suspense>
       </main>
     );
   }
@@ -48,10 +52,25 @@ export default async function HomePage({
   let becauseRecs: Movie[] = [];
   let totalRatings = 0;
   let ratedIds: Set<number> = new Set();
+  // Pool of recognisable films shown in the cold-start onboarding swipe.
+  let onboardPool: Movie[] = [];
 
   if (user) {
     ratedIds = await getRatedIds();
     totalRatings = ratedIds.size;
+
+    if (totalRatings === 0) {
+      // Brand-new account → seed the onboarding swipe with popular, widely-seen
+      // films so the user can give quick "loved/meh" verdicts.
+      const { data: poolRows } = await supabase
+        .from("movies")
+        .select(
+          "tmdb_id, title, poster_url, release_date, vote_average, genres_text",
+        )
+        .order("popularity", { ascending: false, nullsFirst: false })
+        .limit(12);
+      onboardPool = (poolRows ?? []) as Movie[];
+    }
 
     if (totalRatings > 0) {
       // Seed for "Because you rated …": pick a random film from everything
@@ -130,21 +149,20 @@ export default async function HomePage({
           />
         </Reveal>
 
-        {user && totalRatings === 0 && (
+        {user && totalRatings === 0 && onboardPool.length > 0 && (
           <Reveal>
             <section className="home-feed-section">
               <header className="home-feed-head">
-                <p className="catalog-eyebrow">For you</p>
+                <p className="catalog-eyebrow">Get started</p>
                 <h2 className="home-feed-title">
-                  <span className="landing-grad">Rate a few films</span>
+                  Find your <span className="landing-grad">taste</span>
                 </h2>
+                <p className="meta">
+                  Rate a handful of films you&rsquo;ve seen and we&rsquo;ll build
+                  a feed that fits — takes about 30 seconds.
+                </p>
               </header>
-              <p className="meta home-feed-empty">
-                Rate 3+ films and we'll build a personalised feed for you here.{" "}
-                <Link href="/movies" className="link-accent">
-                  Browse the catalog →
-                </Link>
-              </p>
+              <OnboardingSwipe movies={onboardPool} />
             </section>
           </Reveal>
         )}

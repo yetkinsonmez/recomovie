@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getUserId } from "@/lib/auth";
 import { isReactionCode, type ReactionCode } from "@/lib/reactions";
 
 const VALID_RATINGS = new Set(
@@ -27,10 +28,8 @@ export async function rateMovie(
   if (!VALID_RATINGS.has(rating)) return { error: "Invalid rating" };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const cleanComment = normalizeComment(comment);
 
@@ -38,7 +37,7 @@ export async function rateMovie(
   // only makes sense when there's actually a comment.
   const { error } = await supabase.from("user_movie_ratings").upsert(
     {
-      user_id: user.id,
+      user_id: userId,
       tmdb_id: tmdbId,
       rating,
       comment: cleanComment,
@@ -49,8 +48,10 @@ export async function rateMovie(
   );
 
   if (error) return { error: error.message };
-  revalidatePath(`/movie/${tmdbId}`);
-  revalidatePath("/profile");
+  // No revalidatePath: the rating widget updates optimistically, and the movie
+  // page is a dynamic (cookie-bound) route so it re-renders fresh on the next
+  // visit anyway. Revalidating here would only force the heavy match_movies
+  // RPC + diary re-render into this action's response — the rating lag.
   return { ok: true as const };
 }
 
@@ -62,10 +63,8 @@ export async function setRatingComment(
   spoiler = false,
 ) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const cleanComment = normalizeComment(comment);
 
@@ -76,7 +75,7 @@ export async function setRatingComment(
       comment_spoiler: cleanComment ? spoiler : false,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("tmdb_id", tmdbId)
     .select("user_id");
 
@@ -84,27 +83,27 @@ export async function setRatingComment(
   if (!data || data.length === 0) {
     return { error: "Rate the film before leaving a comment." };
   }
+  // Keep the movie-page revalidate here (but not /profile): writing a comment
+  // is a deliberate, infrequent action and the user expects it to show up in
+  // the "Recent ratings" diary right away. The star-rating hot path skips this.
   revalidatePath(`/movie/${tmdbId}`);
-  revalidatePath("/profile");
   return { ok: true as const };
 }
 
 export async function removeRating(tmdbId: number) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
 
   const { error } = await supabase
     .from("user_movie_ratings")
     .delete()
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("tmdb_id", tmdbId);
 
   if (error) return { error: error.message };
-  revalidatePath(`/movie/${tmdbId}`);
-  revalidatePath("/profile");
+  // Optimistic widget clears the stars; dynamic route refreshes the diary on
+  // the next visit. Skip the revalidate to keep removal snappy.
   return { ok: true as const };
 }
 
@@ -119,11 +118,9 @@ export async function setCommentReaction(
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in" };
-  if (user.id === ratingUserId) {
+  const userId = await getUserId();
+  if (!userId) return { error: "Not signed in" };
+  if (userId === ratingUserId) {
     return { error: "You can't react to your own comment." };
   }
 
@@ -131,14 +128,14 @@ export async function setCommentReaction(
     const { error } = await supabase
       .from("rating_comment_reactions")
       .delete()
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .eq("rating_user_id", ratingUserId)
       .eq("tmdb_id", tmdbId);
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("rating_comment_reactions").upsert(
       {
-        user_id: user.id,
+        user_id: userId,
         rating_user_id: ratingUserId,
         tmdb_id: tmdbId,
         reaction,
@@ -148,6 +145,7 @@ export async function setCommentReaction(
     if (error) return { error: error.message };
   }
 
-  revalidatePath(`/movie/${tmdbId}`);
+  // CommentReactions updates optimistically; the dynamic route shows the
+  // authoritative tally on the next visit. No revalidate → no reaction lag.
   return { ok: true as const };
 }

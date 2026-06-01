@@ -2,6 +2,7 @@ import Link from "next/link";
 import { login } from "@/app/auth/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PasswordInput } from "@/components/PasswordInput";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 
 export default async function LoginPage({
   searchParams,
@@ -30,6 +31,12 @@ export default async function LoginPage({
 
         {message && <p className="auth-message">{message}</p>}
         {error && <p className="auth-error">{error}</p>}
+
+        <GoogleAuthButton next={next} />
+
+        <div className="auth-divider" aria-hidden="true">
+          <span>or</span>
+        </div>
 
         <form action={login} className="auth-form">
           {next && <input type="hidden" name="next" value={next} />}
