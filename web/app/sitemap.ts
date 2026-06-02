@@ -1,36 +1,19 @@
 import type { MetadataRoute } from "next";
 import { supabase } from "@/lib/supabase";
 import { SITE_URL } from "@/lib/siteUrl";
-
-// One sitemap file per 1,000 URLs. Well under the 50k/file limit, and small
-// enough that each chunk stays under PostgREST's default max-rows cap with a
-// single range query (no per-file looping needed).
-const PER_SITEMAP = 1000;
+import {
+  PER_SITEMAP,
+  sitemapMovieCount,
+  sitemapChunkCounts,
+} from "@/lib/sitemapChunks";
 
 export const revalidate = 86400; // regenerate at most once a day
 
-async function movieCount(): Promise<number> {
-  const { count } = await supabase
-    .from("movies")
-    .select("tmdb_id", { count: "exact", head: true });
-  return count ?? 0;
-}
-
-async function directorCount(): Promise<number> {
-  const { data } = await supabase.rpc("sitemap_director_count");
-  return typeof data === "number" ? data : 0;
-}
-
-// Next calls this to learn how many sitemap files to emit. It auto-publishes a
-// sitemap index at /sitemap.xml that links each /sitemap/<id>.xml.
+// Next calls this to learn how many sitemap files to emit, serving each at
+// /sitemap/<id>.xml. NOTE: it does NOT publish a sitemap index at /sitemap.xml
+// — that lives in app/sitemap_index.xml/route.ts, which robots.txt points at.
 export async function generateSitemaps(): Promise<{ id: number }[]> {
-  const [movies, directors] = await Promise.all([
-    movieCount(),
-    directorCount(),
-  ]);
-  const movieFiles = Math.max(1, Math.ceil(movies / PER_SITEMAP));
-  const directorFiles = Math.ceil(directors / PER_SITEMAP);
-  const total = movieFiles + directorFiles;
+  const { total } = await sitemapChunkCounts();
   return Array.from({ length: total }, (_, id) => ({ id }));
 }
 
@@ -47,7 +30,10 @@ export default async function sitemap({
 }: {
   id: number;
 }): Promise<MetadataRoute.Sitemap> {
-  const movieFiles = Math.max(1, Math.ceil((await movieCount()) / PER_SITEMAP));
+  const movieFiles = Math.max(
+    1,
+    Math.ceil((await sitemapMovieCount()) / PER_SITEMAP),
+  );
 
   // Movie chunk.
   if (id < movieFiles) {
