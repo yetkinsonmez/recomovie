@@ -1,12 +1,30 @@
 import { headers } from "next/headers";
 import { supabase } from "@/lib/supabase";
 
-/** Best-effort client IP from the standard proxy headers. */
+/**
+ * Best-effort client IP for rate-limiting.
+ *
+ * The LEFT-most `x-forwarded-for` entry is client-supplied and trivially
+ * spoofable (a caller prepends whatever they like; the proxy appends the real
+ * hop after it), so trusting it lets an attacker rotate the header to dodge a
+ * per-IP cap. Prefer headers our trusted proxy sets itself:
+ *   1. `x-real-ip`        — Vercel sets this to the true client IP.
+ *   2. right-most XFF hop — the address the trusted proxy actually observed.
+ * Falling back to the right-most (not left-most) XFF keeps us safe behind a
+ * single proxy even if `x-real-ip` is absent.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
+
+  const real = h.get("x-real-ip");
+  if (real?.trim()) return real.trim();
+
   const fwd = h.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return h.get("x-real-ip") ?? "unknown";
+  if (fwd) {
+    const hops = fwd.split(",").map((s) => s.trim()).filter(Boolean);
+    if (hops.length) return hops[hops.length - 1];
+  }
+  return "unknown";
 }
 
 /**

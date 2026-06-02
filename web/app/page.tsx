@@ -18,7 +18,9 @@ export default async function HomePage({
   searchParams: Promise<{ mood?: string }>;
 }) {
   const sp = await searchParams;
-  const mood = (sp.mood ?? "").trim();
+  // Cap length up front: a mood is a short phrase, and this bounds what we
+  // render, key Suspense on, and ultimately send to the paid embedding API.
+  const mood = (sp.mood ?? "").trim().slice(0, 200);
 
   if (mood) {
     return (

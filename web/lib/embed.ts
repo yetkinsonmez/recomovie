@@ -13,6 +13,11 @@ const RETRY_BACKOFF_MS = 400;
 // Embeddings are deterministic for a given model + text, so a hit can live a
 // long time. 30 days keeps popular moods ("feel good movie") off the paid API.
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
+// Hard cap on query length before it reaches the paid API. A mood is a short
+// phrase; anything longer is abuse (padding unique strings to force cache
+// misses / inflate token cost). Truncate rather than reject so legit-but-long
+// input still returns something.
+const MAX_QUERY_CHARS = 200;
 
 // A 4xx (bad key/request) won't succeed on retry; a timeout, network error, or
 // 5xx/429 is transient and worth another go.
@@ -107,7 +112,11 @@ export async function embedQuery(
   text: string,
   onCacheMiss?: () => Promise<void>,
 ): Promise<number[]> {
-  const normalized = text.trim().replace(/\s+/g, " ").toLowerCase();
+  const normalized = text
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .slice(0, MAX_QUERY_CHARS);
   const cached = unstable_cache(
     async () => {
       if (onCacheMiss) await onCacheMiss();

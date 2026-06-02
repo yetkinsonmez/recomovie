@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safeNext";
 
 // OAuth (Google) redirects back here with a `code`. We exchange it for a
 // session (PKCE — the verifier cookie was set when the flow started), then send
@@ -9,9 +10,9 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
 
-  // Only allow relative redirects — guards against open-redirect via ?next=.
-  const rawNext = searchParams.get("next") ?? "/";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  // Only allow safe same-origin relative redirects — guards against
+  // open-redirect via ?next= (incl. "//" and backslash tricks).
+  const next = safeNextPath(searchParams.get("next"));
 
   // Behind Vercel's proxy the request origin is the internal host; use the
   // forwarded host for the user-facing redirect in production.

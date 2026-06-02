@@ -3,23 +3,34 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { safeNextPath } from "@/lib/safeNext";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 /**
  * Resolve a login identifier (either an email or a username) to an email,
  * because Supabase Auth signs in by email/phone only.
+ *
+ * The username→email lookup runs through a server-side service-role client:
+ * email_for_username is no longer granted to anon/authenticated, so it can't be
+ * called with the public anon key (that was an email-harvesting vector). If the
+ * service role isn't configured we fail closed (treat as "no account") so we
+ * never silently fall back to an exposed path.
  */
-async function resolveEmail(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  identifier: string,
-): Promise<string | null> {
+async function resolveEmail(identifier: string): Promise<string | null> {
   if (identifier.includes("@")) return identifier;
-  const { data, error } = await supabase.rpc("email_for_username", {
-    p_username: identifier,
-  });
-  if (error || !data) return null;
-  return data as string;
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("email_for_username", {
+      p_username: identifier,
+    });
+    if (error || !data) return null;
+    return data as string;
+  } catch (err) {
+    console.error("[auth] username lookup failed:", err);
+    return null;
+  }
 }
 
 export async function login(formData: FormData) {
@@ -27,12 +38,11 @@ export async function login(formData: FormData) {
 
   const identifier = String(formData.get("identifier") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  // Where to send the user after a successful sign-in. Only accept relative
-  // paths to prevent open-redirect attacks.
-  const rawNext = String(formData.get("next") ?? "");
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  // Where to send the user after a successful sign-in. Only accept safe,
+  // same-origin relative paths to prevent open-redirect attacks.
+  const next = safeNextPath(String(formData.get("next") ?? ""));
 
-  const email = await resolveEmail(supabase, identifier);
+  const email = await resolveEmail(identifier);
   if (!email) {
     redirect(`/login?error=${encodeURIComponent("No account found")}`);
   }

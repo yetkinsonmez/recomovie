@@ -10,6 +10,12 @@ const MIN_SIMILARITY = 0.5;
 // tight enough to stop a script from running up the bill.
 const RATE_LIMIT = 15;
 const RATE_WINDOW_SECONDS = 60;
+// Global backstop: a hard ceiling on paid embedding calls per day across ALL
+// callers. Per-IP limits don't stop a distributed (many-IP) attack, so this
+// bounds worst-case spend. Sized well above realistic daily demand — raise it
+// if legitimate traffic ever approaches the cap. One day in seconds.
+const GLOBAL_DAILY_LIMIT = 5000;
+const DAY_SECONDS = 60 * 60 * 24;
 
 // Thrown from the cache-miss hook when the caller is over their embedding
 // budget, so we can tell it apart from a genuine embed/search failure.
@@ -26,12 +32,21 @@ export async function VibeResults({ mood }: { mood: string }) {
 
   try {
     const vector = await embedQuery(mood, async () => {
-      const allowed = await rateLimitKey(
+      // Charged only on a real (cache-miss) paid call. Check the per-IP cap
+      // first; only count against the global ceiling once the IP is allowed.
+      const ipAllowed = await rateLimitKey(
         `vibe:${ip}`,
         RATE_LIMIT,
         RATE_WINDOW_SECONDS,
       );
-      if (!allowed) throw new RateLimitedError();
+      if (!ipAllowed) throw new RateLimitedError();
+
+      const globalAllowed = await rateLimitKey(
+        "vibe:global",
+        GLOBAL_DAILY_LIMIT,
+        DAY_SECONDS,
+      );
+      if (!globalAllowed) throw new RateLimitedError();
     });
     const { data, error } = await supabase.rpc("match_movies_by_embedding", {
       query_embedding: JSON.stringify(vector),
