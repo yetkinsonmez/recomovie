@@ -8,6 +8,33 @@ import type { Recommendation } from "@/lib/types";
 import { addToWatchlist } from "@/app/watchlist/actions";
 import { Spinner } from "./Spinner";
 
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 13l4 4L19 7"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function WatchlistSuggestions({
   suggestions,
   ratedIds,
@@ -57,23 +84,42 @@ export function WatchlistSuggestions({
             role="listitem"
             title={rated ? "You've already rated this" : undefined}
           >
-            <Link href={`/movie/${m.tmdb_id}`} className="wl-suggest-poster">
-              {m.poster_url ? (
-                <Image
-                  src={m.poster_url}
-                  alt={m.title}
-                  fill
-                  sizes="200px"
-                />
-              ) : (
-                <div className="poster-empty">No image</div>
-              )}
-              {m.vote_average ? (
-                <span className="rating-chip">
-                  ★ {m.vote_average.toFixed(1)}
-                </span>
-              ) : null}
-            </Link>
+            <div className="wl-suggest-poster-wrap">
+              <Link href={`/movie/${m.tmdb_id}`} className="wl-suggest-poster">
+                {m.poster_url ? (
+                  <Image src={m.poster_url} alt={m.title} fill sizes="200px" />
+                ) : (
+                  <div className="poster-empty">No image</div>
+                )}
+                {m.vote_average ? (
+                  <span className="rating-chip">
+                    ★ {m.vote_average.toFixed(1)}
+                  </span>
+                ) : null}
+              </Link>
+              {/* Sibling of the poster Link (not nested — a button inside an
+                  anchor is invalid), centred over it via absolute positioning. */}
+              <button
+                type="button"
+                className={`wl-suggest-fab ${isAdded ? "is-added" : ""}`}
+                onClick={() => handleAdd(m.tmdb_id)}
+                disabled={isPending || isAdded}
+                aria-label={
+                  isAdded
+                    ? `${m.title} added to watchlist`
+                    : `Add ${m.title} to watchlist`
+                }
+                title={isAdded ? "Added to watchlist" : "Add to watchlist"}
+              >
+                {isPending ? (
+                  <Spinner size={20} />
+                ) : isAdded ? (
+                  <CheckIcon />
+                ) : (
+                  <PlusIcon />
+                )}
+              </button>
+            </div>
             <div className="wl-suggest-body">
               <Link href={`/movie/${m.tmdb_id}`} className="wl-suggest-title">
                 {m.title}
@@ -81,22 +127,6 @@ export function WatchlistSuggestions({
               {m.release_date && (
                 <span className="meta">{m.release_date.slice(0, 4)}</span>
               )}
-              <button
-                type="button"
-                className={`wl-suggest-add ${isAdded ? "is-added" : ""}`}
-                onClick={() => handleAdd(m.tmdb_id)}
-                disabled={isPending || isAdded}
-              >
-                {isPending ? (
-                  <>
-                    <Spinner size={12} /> Adding…
-                  </>
-                ) : isAdded ? (
-                  "✓ Added"
-                ) : (
-                  "+ Add"
-                )}
-              </button>
             </div>
           </article>
         );

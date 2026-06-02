@@ -5,7 +5,6 @@ import { VibeSearch } from "@/components/VibeSearch";
 import { VibeResults } from "@/components/VibeResults";
 import { VibeResultsSkeleton, HomeFeedSkeleton } from "@/components/Skeletons";
 import { HomeFeedSection } from "@/components/HomeFeedSection";
-import { OnboardingSwipe } from "@/components/OnboardingSwipe";
 import { Reveal } from "@/components/Reveal";
 import { getRatedIds } from "@/lib/userEngagement";
 import { getCurrentUser } from "@/lib/auth";
@@ -86,25 +85,10 @@ async function HomeFeed() {
   let becauseRecs: Movie[] = [];
   let totalRatings = 0;
   let ratedIds: Set<number> = new Set();
-  // Pool of recognisable films shown in the cold-start onboarding swipe.
-  let onboardPool: Movie[] = [];
 
   if (user) {
     ratedIds = await getRatedIds();
     totalRatings = ratedIds.size;
-
-    if (totalRatings === 0) {
-      // Brand-new account → seed the onboarding swipe with popular, widely-seen
-      // films so the user can give quick "loved/meh" verdicts.
-      const { data: poolRows } = await supabase
-        .from("movies")
-        .select(
-          "tmdb_id, title, poster_url, release_date, vote_average, genres_text",
-        )
-        .order("popularity", { ascending: false, nullsFirst: false })
-        .limit(12);
-      onboardPool = (poolRows ?? []) as Movie[];
-    }
 
     if (totalRatings > 0) {
       // Seed for "Because you rated …": pick a random film from everything
@@ -160,20 +144,16 @@ async function HomeFeed() {
           />
         </Reveal>
 
-        {user && totalRatings === 0 && onboardPool.length > 0 && (
+        {user && totalRatings === 0 && (
           <Reveal>
-            <section className="home-feed-section">
-              <header className="home-feed-head">
-                <p className="catalog-eyebrow">Get started</p>
-                <h2 className="home-feed-title">
-                  Find your <span className="landing-grad">taste</span>
-                </h2>
-                <p className="meta">
-                  Rate a handful of films you&rsquo;ve seen and we&rsquo;ll build
-                  a feed that fits — takes about 30 seconds.
-                </p>
-              </header>
-              <OnboardingSwipe movies={onboardPool} />
+            <section className="home-feed-section onboard-cta">
+              <h2 className="home-feed-title">
+                Build your <span className="landing-grad">feed</span>
+              </h2>
+              <p className="onboard-cta-sub">
+                Tell recomovie what you&rsquo;ve loved, and it&rsquo;ll find{" "}
+                <span className="landing-grad">what you&rsquo;ll love next</span>.
+              </p>
             </section>
           </Reveal>
         )}

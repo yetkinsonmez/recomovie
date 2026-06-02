@@ -1,7 +1,12 @@
 import Image from "next/image";
 import { VTLink } from "./VTLink";
+import { Collapsible } from "./Collapsible";
 import { censorComment } from "@/lib/censor";
 import { SpoilerComment } from "./SpoilerComment";
+
+// Collapsed height (~5 rows). Past this the diary clamps with a faded edge and
+// a "Show all" toggle.
+const DIARY_COLLAPSED_HEIGHT = 460;
 
 export interface DiaryEntry {
   tmdb_id: number;
@@ -59,6 +64,57 @@ function MiniStars({ value }: { value: number }) {
   );
 }
 
+function DiaryRow({
+  entry: e,
+  isOwn,
+  subject,
+}: {
+  entry: DiaryEntry;
+  isOwn: boolean;
+  subject: string;
+}) {
+  return (
+    <li className="diary-row">
+      <VTLink
+        href={`/movie/${e.tmdb_id}`}
+        className="diary-poster"
+        style={{ viewTransitionName: `poster-${e.tmdb_id}` } as React.CSSProperties}
+      >
+        {e.movie.poster_url ? (
+          <Image src={e.movie.poster_url} alt="" fill sizes="48px" />
+        ) : (
+          <span className="diary-poster-empty" />
+        )}
+      </VTLink>
+      <div className="diary-body">
+        <VTLink href={`/movie/${e.tmdb_id}`} className="diary-title">
+          {e.movie.title}
+          {e.movie.release_date && (
+            <span className="meta"> ({e.movie.release_date.slice(0, 4)})</span>
+          )}
+        </VTLink>
+        <MiniStars value={e.rating} />
+        <p className="meta diary-date">
+          {isOwn ? "You rated this" : `@${subject} rated this`}{" "}
+          <strong>{e.rating.toFixed(1)} / 10</strong> on {formatDate(e.updated_at)}
+        </p>
+        {e.comment &&
+          (e.is_spoiler && !isOwn ? (
+            <SpoilerComment
+              className="diary-comment"
+              text={censorComment(e.comment)}
+            />
+          ) : (
+            <p className="diary-comment">
+              {e.is_spoiler && <span className="spoiler-tag">Spoiler</span>}{" "}
+              {isOwn ? e.comment : censorComment(e.comment)}
+            </p>
+          ))}
+      </div>
+    </li>
+  );
+}
+
 export function RatingsDiary({
   entries,
   subject = "you",
@@ -80,55 +136,15 @@ export function RatingsDiary({
   }
 
   return (
-    <ul className="diary-list">
-      {entries.map((e) => (
-        <li key={e.tmdb_id} className="diary-row">
-          <VTLink
-            href={`/movie/${e.tmdb_id}`}
-            className="diary-poster"
-            style={{ viewTransitionName: `poster-${e.tmdb_id}` } as React.CSSProperties}
-          >
-            {e.movie.poster_url ? (
-              <Image
-                src={e.movie.poster_url}
-                alt=""
-                fill
-                sizes="48px"
-              />
-            ) : (
-              <span className="diary-poster-empty" />
-            )}
-          </VTLink>
-          <div className="diary-body">
-            <VTLink href={`/movie/${e.tmdb_id}`} className="diary-title">
-              {e.movie.title}
-              {e.movie.release_date && (
-                <span className="meta">
-                  {" "}({e.movie.release_date.slice(0, 4)})
-                </span>
-              )}
-            </VTLink>
-            <MiniStars value={e.rating} />
-            <p className="meta diary-date">
-              {isOwn ? "You rated this" : `@${subject} rated this`}{" "}
-              <strong>{e.rating.toFixed(1)} / 10</strong> on{" "}
-              {formatDate(e.updated_at)}
-            </p>
-            {e.comment &&
-              (e.is_spoiler && !isOwn ? (
-                <SpoilerComment
-                  className="diary-comment"
-                  text={censorComment(e.comment)}
-                />
-              ) : (
-                <p className="diary-comment">
-                  {e.is_spoiler && <span className="spoiler-tag">Spoiler</span>}{" "}
-                  {isOwn ? e.comment : censorComment(e.comment)}
-                </p>
-              ))}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <Collapsible
+      collapsedHeight={DIARY_COLLAPSED_HEIGHT}
+      showAllLabel={`Show all ${entries.length}`}
+    >
+      <ul className="diary-list">
+        {entries.map((e) => (
+          <DiaryRow key={e.tmdb_id} entry={e} isOwn={isOwn} subject={subject} />
+        ))}
+      </ul>
+    </Collapsible>
   );
 }

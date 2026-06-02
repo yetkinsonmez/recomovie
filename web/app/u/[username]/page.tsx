@@ -8,6 +8,7 @@ import { censorComment } from "@/lib/censor";
 import { RatingsDiary, type DiaryEntry } from "@/components/RatingsDiary";
 import { CriticProfile } from "@/components/CriticProfile";
 import { Badges } from "@/components/Badges";
+import { Collapsible } from "@/components/Collapsible";
 import { SignInGate } from "@/components/SignInGate";
 import { getProfileStats, type ProfileStats } from "@/lib/profileStats";
 import { getCurrentUser } from "@/lib/auth";
@@ -166,37 +167,6 @@ export default async function PublicProfilePage({
 
         <section className="profile-section">
           <h2 className="profile-section-title">
-            <span className="landing-grad">Critic personality</span>
-          </h2>
-          {!isLoggedIn || !stats ? (
-            <SignInGate
-              label={`See how @${profile.username} rates vs the crowd`}
-              nextPath={nextPath}
-            />
-          ) : (
-            <CriticProfile
-              stats={stats.critic}
-              name={profile.username as string}
-            />
-          )}
-        </section>
-
-        <section className="profile-section">
-          <h2 className="profile-section-title">
-            <span className="landing-grad">Badges</span>
-          </h2>
-          {!isLoggedIn || !stats ? (
-            <SignInGate
-              label={`See @${profile.username}'s badges`}
-              nextPath={nextPath}
-            />
-          ) : (
-            <Badges badges={stats.badges} />
-          )}
-        </section>
-
-        <section className="profile-section">
-          <h2 className="profile-section-title">
             <span className="landing-grad">Four favorites</span>
           </h2>
           {!isLoggedIn ? (
@@ -249,6 +219,37 @@ export default async function PublicProfilePage({
 
         <section className="profile-section">
           <h2 className="profile-section-title">
+            <span className="landing-grad">Critic personality</span>
+          </h2>
+          {!isLoggedIn || !stats ? (
+            <SignInGate
+              label={`See how @${profile.username} rates vs the crowd`}
+              nextPath={nextPath}
+            />
+          ) : (
+            <CriticProfile
+              stats={stats.critic}
+              name={profile.username as string}
+            />
+          )}
+        </section>
+
+        <section className="profile-section">
+          <h2 className="profile-section-title">
+            <span className="landing-grad">Badges</span>
+          </h2>
+          {!isLoggedIn || !stats ? (
+            <SignInGate
+              label={`See @${profile.username}'s badges`}
+              nextPath={nextPath}
+            />
+          ) : (
+            <Badges badges={stats.badges} />
+          )}
+        </section>
+
+        <section className="profile-section">
+          <h2 className="profile-section-title">
             <span className="landing-grad">Watchlist</span>
           </h2>
           {!isLoggedIn ? (
@@ -259,8 +260,12 @@ export default async function PublicProfilePage({
           ) : watchlist.length === 0 ? (
             <p className="meta">Watchlist is empty.</p>
           ) : (
-            <section className="grid catalog-grid">
-              {watchlist.map((m) => (
+            <Collapsible
+              collapsedHeight={620}
+              showAllLabel={`Show all ${watchlist.length}`}
+            >
+              <section className="grid catalog-grid">
+                {watchlist.map((m) => (
                 <Link
                   key={m.tmdb_id}
                   href={`/movie/${m.tmdb_id}`}
@@ -290,8 +295,9 @@ export default async function PublicProfilePage({
                     )}
                   </div>
                 </Link>
-              ))}
-            </section>
+                ))}
+              </section>
+            </Collapsible>
           )}
         </section>
 

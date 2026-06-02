@@ -3,7 +3,7 @@
  * sitemap, robots, metadataBase and JSON-LD so crawlers get fully-qualified
  * URLs.
  *
- * Set NEXT_PUBLIC_SITE_URL in production (e.g. https://recomovie.app). Falls
+ * Set NEXT_PUBLIC_SITE_URL in production (e.g. https://recomovie.tv). Falls
  * back to the Vercel-provided deployment URL, then localhost for dev.
  */
 function resolveSiteUrl(): string {

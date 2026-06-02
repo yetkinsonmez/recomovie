@@ -3113,6 +3113,59 @@ h2 {
   flex-direction: column;
   gap: 0.85rem;
 }
+
+/* Reusable collapse: clamp content to a height with a faded bottom edge, then
+   reveal the rest with a smooth height animation. Used by the profile diary +
+   watchlist. The fade is a bottom mask so it works on any background. */
+.collapsible {
+  display: flex;
+  flex-direction: column;
+}
+.collapsible-inner {
+  overflow: hidden;
+  transition: max-height 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.collapsible-inner.is-faded {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 64px),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent);
+}
+.collapsible-toggle {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.85rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(var(--surface-rgb), 0.6);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.collapsible-toggle:hover {
+  border-color: var(--accent);
+}
+.collapsible-chevron {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.25s ease;
+}
+.collapsible-toggle[aria-expanded="true"] .collapsible-chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-inner {
+    transition: none;
+  }
+}
 .diary-row {
   display: flex;
   gap: 1rem;
@@ -3370,25 +3423,53 @@ h2 {
 }
 .wl-suggest-title:hover { color: var(--accent); }
 .wl-suggest-body { display: flex; flex-direction: column; gap: 0.25rem; }
-.wl-suggest-add {
-  margin-top: 0.3rem;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  border-radius: 999px;
-  cursor: pointer;
-  display: inline-flex;
+
+/* Centred glass plus button overlaid on the poster (a sibling of the poster
+   link, not nested in it). Adds the film to the watchlist in place. */
+.wl-suggest-poster-wrap {
+  position: relative;
+}
+.wl-suggest-fab {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px;
+  height: 52px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  transition: background 0.15s ease, color 0.15s ease;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(20, 16, 12, 0.5);
+  color: #fff;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.18s ease, background-color 0.18s ease,
+    border-color 0.18s ease;
 }
-.wl-suggest-add:hover { background: rgba(194, 84, 58, 0.12); }
-.wl-suggest-add.is-added { background: var(--accent); color: #fff; }
-.wl-suggest-add:disabled { cursor: wait; opacity: 0.85; }
+.wl-suggest-fab svg {
+  width: 24px;
+  height: 24px;
+}
+.wl-suggest-fab:hover {
+  transform: translate(-50%, -50%) scale(1.09);
+  background: rgba(194, 84, 58, 0.9);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+.wl-suggest-fab:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+.wl-suggest-fab.is-added {
+  background: rgba(54, 158, 89, 0.92);
+  border-color: rgba(255, 255, 255, 0.8);
+  cursor: default;
+}
+.wl-suggest-fab:disabled:not(.is-added) {
+  cursor: wait;
+}
 
 /* ── Already-rated cards: drained colour, dimmed, still clickable ───────── */
 .card.is-rated .poster img,
@@ -3864,6 +3945,24 @@ h2 {
   gap: 0.5rem 1rem;
 }
 .home-feed-head .catalog-eyebrow { margin: 0; }
+
+/* Cold-start CTA shown to signed-in users with no ratings yet, in place of the
+   old onboarding swipe deck. Title + tagline stacked. */
+.onboard-cta {
+  gap: 0.5rem;
+}
+.onboard-cta-sub {
+  margin: 0;
+  max-width: 48ch;
+  font-family: var(--font-display), serif;
+  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
+  line-height: 1.45;
+  color: var(--text);
+  opacity: 0.92;
+}
+.onboard-cta-sub .landing-grad {
+  font-style: italic;
+}
 .home-feed-title {
   font-family: var(--font-display), serif;
   font-size: clamp(1.8rem, 3.4vw, 2.6rem);
