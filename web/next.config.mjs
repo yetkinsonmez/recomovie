@@ -7,6 +7,12 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Sources (TMDB, YouTube, Supabase) already serve size-specific, CDN-
+    // optimized images, so we skip Vercel's image optimizer — re-optimizing
+    // them blew past the Hobby plan's Image Optimization limits. Images are
+    // served directly from their origin CDNs. `remotePatterns` is kept for
+    // documentation / easy revert (it's a no-op while unoptimized).
+    unoptimized: true,
     // TMDB posters/backdrops + YouTube thumbnails. AVIF/WebP variants are
     // generated automatically by next/image. Pathnames are listed explicitly
     // because some Next.js versions require them in remotePatterns.
